@@ -8,6 +8,7 @@
 - **日期筛选**：按日期范围筛选（当前未实现）
 - **排序切换**：支持升序/降序切换
 - **结果展示**：列表展示搜索结果，显示编号、日期、状态
+- **日期清除**：清除已设置的日期筛选条件
 
 ---
 
@@ -33,6 +34,7 @@ lib/pages/drawing_search_page.dart
 |------|------|
 | 返回上一页 | 点击左上角返回按钮 |
 | 显示 SnackBar | 搜索完成时显示提示 |
+| 日期清除对话框 | 有日期筛选时点击日期按钮弹出 |
 
 ---
 
@@ -115,12 +117,16 @@ _loadResults();  // 重新加载数据
 
 | 子组件 | 代码位置 | 说明 |
 |--------|----------|------|
-| SearchCard | 155-197行 | 搜索输入框和搜索按钮 |
-| DateRangeButton | 213-269行 | 日期范围筛选按钮（功能未实现） |
-| OrderToggle | 351-392行 | 升序/降序切换按钮 |
-| ResultsList | 394-411行 | 搜索结果列表 |
-| ResultCard | 413-493行 | 单个搜索结果卡片 |
-| GridPainter | 496-515行 | 网格背景绘制 |
+| `_buildAppBar` | 136-146 | 顶部导航栏（带返回按钮） |
+| `_buildGridBackground` | 148-153 | 网格背景容器 |
+| `_buildSearchCard` | 155-197 | 搜索输入框和搜索按钮 |
+| `_buildFilterSection` | 199-211 | 筛选区域容器（日期+排序） |
+| `_buildDateRangeButton` | 213-269 | 日期范围筛选按钮（功能未实现） |
+| `_buildOrderToggle` | 351-392 | 升序/降序切换按钮 |
+| `_buildResultsList` | 394-411 | 搜索结果列表 |
+| `_buildResultCard` | 413-493 | 单个搜索结果卡片 |
+| `_showDateRangeClearDialog` | 285-349 | 日期清除对话框 |
+| `_GridPainter` | 496-515 | 网格背景绘制 |
 
 ---
 
@@ -151,6 +157,19 @@ String _formatDate(DateTime? date) {
 ```dart
 // 第419行：点击结果卡片（当前为空操作）
 onTap: () {},
+```
+
+### 日期筛选清除
+
+```dart
+// 第92-98行：清除日期筛选并重新加载
+void _clearDateFilter() {
+  setState(() {
+    _startDate = null;
+    _endDate = null;
+  });
+  _loadResults();
+}
 ```
 
 ---

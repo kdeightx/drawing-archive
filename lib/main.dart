@@ -38,6 +38,19 @@ class _DrawingScannerAppState extends State<DrawingScannerApp> {
   /// 核心业务逻辑层
   final DrawingService _drawingService = DrawingService();
 
+  @override
+  void initState() {
+    super.initState();
+    // 初始化服务 - 创建 AI 图片存储文件夹
+    _initializeService();
+  }
+
+  /// 初始化服务
+  Future<void> _initializeService() async {
+    // 先初始化服务（会请求权限并创建文件夹）
+    await _drawingService.initialize();
+  }
+
   /// 切换语言
   void changeLanguage(Locale locale) {
     setState(() {

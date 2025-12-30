@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart' as image_picker;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// 图片来源枚举
 enum ImageSource { camera, gallery }
@@ -13,6 +14,83 @@ enum ImageSource { camera, gallery }
 /// 负责处理与图纸相关的所有业务逻辑
 class DrawingService {
   final image_picker.ImagePicker _imagePicker = image_picker.ImagePicker();
+
+  /// 存储发送给 AI 的图片的文件夹
+  io.Directory? _aiImagesDirectory;
+
+  /// 获取 AI 图片存储目录
+  io.Directory? get aiImagesDirectory => _aiImagesDirectory;
+
+  /// 初始化服务 - 检查并创建存储文件夹
+  /// 返回 true 表示初始化成功，false 表示需要用户授权
+  Future<bool> initialize() async {
+    if (kDebugMode) {
+      print('DrawingService: 初始化中...');
+    }
+
+    try {
+      // Android 11+ 需要请求 MANAGE_EXTERNAL_STORAGE 权限
+      if (io.Platform.isAndroid) {
+        final manageStatus = await Permission.manageExternalStorage.status;
+        if (!manageStatus.isGranted) {
+          if (kDebugMode) {
+            print('需要请求管理外部存储权限...');
+          }
+          final result = await Permission.manageExternalStorage.request();
+
+          // 权限被拒绝或永久拒绝，尝试打开设置页面
+          if (!result.isGranted) {
+            debugPrint('✗ 管理外部存储权限被拒绝');
+
+            // 尝试打开应用设置页面
+            final opened = await openAppSettings();
+            if (opened) {
+              debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+            }
+            return false;
+          }
+          if (kDebugMode) {
+            print('✓ 管理外部存储权限已授予');
+          }
+        }
+      }
+
+      // 直接使用外部存储根目录，与 Download、Documents 等系统文件夹同级
+      // 路径格式：/storage/emulated/0/DrawingScanner/
+      final folderPath = '/storage/emulated/0/DrawingScanner';
+      final folder = io.Directory(folderPath);
+
+      if (kDebugMode) {
+        print('准备创建/检查文件夹: $folderPath');
+      }
+
+      // 检查文件夹是否存在，不存在则创建
+      if (!await folder.exists()) {
+        if (kDebugMode) {
+          print('文件夹不存在，正在创建...');
+        }
+        await folder.create(recursive: true);
+        debugPrint('✓ 已创建 AI 图片存储文件夹: $folderPath');
+      } else {
+        if (kDebugMode) {
+          print('✓ AI 图片存储文件夹已存在: $folderPath');
+        }
+      }
+
+      _aiImagesDirectory = folder;
+
+      // 列出文件夹中的文件（如果有）
+      if (_aiImagesDirectory != null && kDebugMode) {
+        final files = _aiImagesDirectory!.listSync();
+        print('文件夹中共有 ${files.length} 个文件');
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('✗ 初始化存储文件夹失败: $e');
+      return false;
+    }
+  }
 
   /// 选择图片（从相机或相册）- 单选
   Future<io.File?> pickImage(ImageSource source) async {
@@ -116,6 +194,17 @@ class DrawingService {
 
   /// 分析图片，识别图纸编号
   Future<String> analyzeImage(io.File image) async {
+    // 将图片复制到 AI 图片存储文件夹
+    if (_aiImagesDirectory != null) {
+      try {
+        final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
+        final copiedFile = await image.copy('${_aiImagesDirectory!.path}/$fileName');
+        debugPrint('已复制图片到存储文件夹: ${copiedFile.path}');
+      } catch (e) {
+        debugPrint('复制图片失败: $e');
+      }
+    }
+
     // TODO: 实际实现需要调用 AI/OCR 服务
     // return await ocrService.recognizeDrawingNumber(image);
 
