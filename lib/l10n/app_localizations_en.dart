@@ -141,6 +141,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get helpHint => 'View user guide';
 
   @override
+  String get aiApiConfig => 'AI API Config';
+
+  @override
+  String get aiApiConfigHint => 'Configure third-party LLM API';
+
+  @override
+  String get aiApiConfigDescription => 'Configure third-party LLM API for drawing number recognition. Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy.';
+
+  @override
+  String get apiKey => 'API Key';
+
+  @override
+  String get apiKeyHint => 'Enter API Key';
+
+  @override
+  String get baseUrl => 'Base URL';
+
+  @override
+  String get baseUrlHint => 'Enter API base URL';
+
+  @override
+  String get modelName => 'Model Name';
+
+  @override
+  String get modelNameHint => 'Enter model name';
+
+  @override
+  String get errorApiKeyRequired => 'Please enter API Key';
+
+  @override
+  String get errorBaseUrlRequired => 'Please enter Base URL';
+
+  @override
+  String get errorModelNameRequired => 'Please enter model name';
+
+  @override
+  String get saveConfig => 'Save Config';
+
+  @override
+  String get configSaved => 'Configuration saved';
+
+  @override
   String get settingsFunction => 'Settings function coming soon';
 
   @override

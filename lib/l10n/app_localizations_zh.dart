@@ -141,6 +141,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get helpHint => '查看使用说明';
 
   @override
+  String get aiApiConfig => 'AI API 配置';
+
+  @override
+  String get aiApiConfigHint => '配置第三方大模型 API';
+
+  @override
+  String get aiApiConfigDescription => '配置第三方大模型 API 用于图纸编号识别。建议使用 Gemini 3 Flash 或 Gemini 3 Pro，实测识别准确率更高。';
+
+  @override
+  String get apiKey => 'API Key';
+
+  @override
+  String get apiKeyHint => '请输入 API Key';
+
+  @override
+  String get baseUrl => 'Base URL';
+
+  @override
+  String get baseUrlHint => '请输入 API 基础地址';
+
+  @override
+  String get modelName => '模型名称';
+
+  @override
+  String get modelNameHint => '请输入模型名称';
+
+  @override
+  String get errorApiKeyRequired => '请输入 API Key';
+
+  @override
+  String get errorBaseUrlRequired => '请输入 Base URL';
+
+  @override
+  String get errorModelNameRequired => '请输入模型名称';
+
+  @override
+  String get saveConfig => '保存配置';
+
+  @override
+  String get configSaved => '配置已保存';
+
+  @override
   String get settingsFunction => '设置功能待实现';
 
   @override

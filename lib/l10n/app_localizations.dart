@@ -359,6 +359,90 @@ abstract class AppLocalizations {
   /// **'View user guide'**
   String get helpHint;
 
+  /// No description provided for @aiApiConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'AI API Config'**
+  String get aiApiConfig;
+
+  /// No description provided for @aiApiConfigHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure third-party LLM API'**
+  String get aiApiConfigHint;
+
+  /// No description provided for @aiApiConfigDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure third-party LLM API for drawing number recognition. Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy.'**
+  String get aiApiConfigDescription;
+
+  /// No description provided for @apiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API Key'**
+  String get apiKey;
+
+  /// No description provided for @apiKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter API Key'**
+  String get apiKeyHint;
+
+  /// No description provided for @baseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get baseUrl;
+
+  /// No description provided for @baseUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter API base URL'**
+  String get baseUrlHint;
+
+  /// No description provided for @modelName.
+  ///
+  /// In en, this message translates to:
+  /// **'Model Name'**
+  String get modelName;
+
+  /// No description provided for @modelNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter model name'**
+  String get modelNameHint;
+
+  /// No description provided for @errorApiKeyRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter API Key'**
+  String get errorApiKeyRequired;
+
+  /// No description provided for @errorBaseUrlRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter Base URL'**
+  String get errorBaseUrlRequired;
+
+  /// No description provided for @errorModelNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter model name'**
+  String get errorModelNameRequired;
+
+  /// No description provided for @saveConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Config'**
+  String get saveConfig;
+
+  /// No description provided for @configSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration saved'**
+  String get configSaved;
+
   /// No description provided for @settingsFunction.
   ///
   /// In en, this message translates to:

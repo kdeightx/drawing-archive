@@ -7,6 +7,13 @@ import '../services/drawing_service.dart';
 import 'drawing_search_page.dart';
 import 'drawing_settings_page.dart';
 
+/// 进度状态
+enum ProgressState {
+  sending,    // 发送数据中
+  scanning,   // AI扫描中
+  completed,  // 扫描完成
+}
+
 /// 图纸扫描入库页面 - 精密工业风格
 class DrawingScannerPage extends StatefulWidget {
   final DrawingService drawingService;
@@ -36,23 +43,25 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
   static const int _numbersPerPage = 5;
   bool _isAnalyzing = false;
   bool _isSaving = false;
+  /// 进度状态
+  ProgressState? _progressState;
   final TransformationController _transformationController = TransformationController();
   final PageController _pageController = PageController();
 
-  late AnimationController _scanController;
   late AnimationController _pulseController;
+  late AnimationController _rotationController;
 
   @override
   void initState() {
     super.initState();
-    _scanController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
   }
 
   @override
@@ -63,8 +72,8 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
     }
     _transformationController.dispose();
     _pageController.dispose();
-    _scanController.dispose();
     _pulseController.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
@@ -149,7 +158,13 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
       return;
     }
 
-    setState(() => _isAnalyzing = true);
+    // 显示进度：发送数据
+    setState(() => _progressState = ProgressState.sending);
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 显示进度：AI扫描中
+    if (!mounted) return;
+    setState(() => _progressState = ProgressState.scanning);
 
     try {
       final File currentImage = _selectedImages[_currentImageIndex];
@@ -157,16 +172,23 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
 
       if (!mounted) return;
 
+      // 显示进度：完成
       setState(() {
+        _progressState = ProgressState.completed;
         _recognizedNumbers[_currentImageIndex] = number;
         _numberControllers[_currentImageIndex].text = number;
-        _isAnalyzing = false;
       });
+
+      // 延迟后隐藏进度（显示完成状态3秒）
+      await Future.delayed(const Duration(seconds: 3));
+      if (mounted) {
+        setState(() => _progressState = null);
+      }
 
       _showSnackBar(AppLocalizations.of(context)!.saved, isError: false);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isAnalyzing = false);
+      setState(() => _progressState = null);
       _showSnackBar('${AppLocalizations.of(context)!.recognizeFailed}: $e', isError: true);
     }
   }
@@ -175,7 +197,13 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
   Future<void> _handleAnalyzeAllImages() async {
     if (_selectedImages.isEmpty) return;
 
-    setState(() => _isAnalyzing = true);
+    // 显示进度：发送数据
+    setState(() => _progressState = ProgressState.sending);
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 显示进度：AI扫描中
+    if (!mounted) return;
+    setState(() => _progressState = ProgressState.scanning);
 
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
@@ -191,13 +219,20 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
         }
       }
 
+      // 显示进度：完成
       if (!mounted) return;
-      setState(() => _isAnalyzing = false);
+      setState(() => _progressState = ProgressState.completed);
+
+      // 延迟后隐藏进度（显示完成状态3秒）
+      await Future.delayed(const Duration(seconds: 3));
+      if (mounted) {
+        setState(() => _progressState = null);
+      }
 
       _showSnackBar('已完成 ${_selectedImages.length} 张图片的识别', isError: false);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isAnalyzing = false);
+      setState(() => _progressState = null);
       _showSnackBar('${AppLocalizations.of(context)!.recognizeFailed}: $e', isError: true);
     }
   }
@@ -319,7 +354,6 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
               ),
             ),
           ),
-          if (_isAnalyzing || _isSaving) _buildLoadingOverlay(l10n),
         ],
       ),
     );
@@ -354,124 +388,318 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
 
   Widget _buildHeader(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isIdle = _progressState == null;
+
+    // 根据进度状态确定颜色和进度
+    Color statusColor = const Color(0xFF94A3B8);
+    int currentStep = -1;
+    double progress = 0.0;
+
+    switch (_progressState) {
+      case ProgressState.sending:
+        statusColor = const Color(0xFF3B82F6);
+        currentStep = 0;
+        progress = 0.33;
+        break;
+      case ProgressState.scanning:
+        statusColor = const Color(0xFFF59E0B);
+        currentStep = 1;
+        progress = 0.66;
+        break;
+      case ProgressState.completed:
+        statusColor = const Color(0xFF10B981);
+        currentStep = 2;
+        progress = 1.0;
+        break;
+      case null:
+        break;
+    }
+
+    // 空闲状态颜色 - 中性银灰色
+    final idleColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+    final currentColor = isIdle ? idleColor : statusColor;
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          border: Border(
+            bottom: BorderSide(
+              color: currentColor.withValues(alpha: 0.1),
+              width: 1.5,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 3,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                  ],
+            // 顶部：状态文字 + 百分比
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 左侧：状态文字
+                Text(
+                  isIdle ? '就绪' : (currentStep == 0 ? '发送中' : (currentStep == 1 ? 'AI扫描中' : '已完成')),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: currentColor.withValues(alpha: 0.8),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.drawingScanSystem,
-                    style: Theme.of(context).textTheme.titleMedium,
+
+                // 右侧：百分比（使用相同字体风格）
+                Text(
+                  isIdle ? '0%' : '${(progress * 100).toInt()}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    color: currentColor.withValues(alpha: 0.8),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _getStatusText(l10n),
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _isAnalyzing
-                          ? Theme.of(context).colorScheme.primary
-                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            _buildStatusIndicator(l10n),
+            const SizedBox(height: 12), // 8 → 12，给状态文字留空间
+
+            // 全新设计：三节点链式进度指示器（带标签）
+            _buildProgressIndicatorWithLabels(currentStep, currentColor, isIdle, isDark),
           ],
         ),
       ),
     );
   }
 
-  String _getStatusText(AppLocalizations l10n) {
-    if (_isAnalyzing) return l10n.statusAnalyzing;
-    if (_selectedImages.isNotEmpty) {
-      if (_selectedImages.length > 1) {
-        return '已选择 ${_selectedImages.length} 张图片 (${_currentImageIndex + 1}/${_selectedImages.length})';
-      }
-      return l10n.statusReady;
-    }
-    return l10n.statusWaiting;
-  }
+  /// 全新设计：三节点链式进度指示器（带标签）
+  Widget _buildProgressIndicatorWithLabels(int currentStep, Color color, bool isIdle, bool isDark) {
+    // 计算连接线进度：空闲0，发送中到第1个节点(33%)，扫描中到第2个节点(67%)，完成(100%)
+    final lineProgress = isIdle ? 0.0 : ((currentStep + 1) / 3);
 
-  Widget _buildStatusIndicator(AppLocalizations l10n) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color statusColor = _isAnalyzing
-        ? const Color(0xFFF59E0B)
-        : (_selectedImages.isNotEmpty ? const Color(0xFF10B981) : const Color(0xFF94A3B8));
-
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Color.lerp(
-                isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-                statusColor,
-                _pulseController.value,
-              )!,
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      children: [
+        // 进度指示器（圆球 + 连接线）
+        SizedBox(
+          height: 32,
+          child: Stack(
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: statusColor,
-                  boxShadow: _isAnalyzing
-                      ? [
-                          BoxShadow(
-                            color: statusColor.withValues(alpha: 0.5),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
+              // 连接线（背景）
+              Positioned(
+                top: 12,
+                left: 16,
+                right: 16,
+                child: CustomPaint(
+                  size: const Size(double.infinity, 3),
+                  painter: _ConnectorLinePainter(
+                    color: isIdle
+                        ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                        : color.withValues(alpha: 0.3),
+                    progress: 0.0, // 背景线总是满的
+                  ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                _isAnalyzing ? l10n.analyzing : (_selectedImages.isNotEmpty ? l10n.statusReady : l10n.statusStandby),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: statusColor,
+
+              // 连接线（进度填充，带动画）
+              if (!isIdle)
+                Positioned(
+                  top: 12,
+                  left: 16,
+                  right: 16,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: lineProgress),
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return CustomPaint(
+                        size: const Size(double.infinity, 3),
+                        painter: _ConnectorLinePainter(
+                          color: color,
+                          progress: value,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              // 三个圆球节点
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 32,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildProgressNode(0, currentStep, color, isIdle, isDark),
+                    _buildProgressNode(1, currentStep, color, isIdle, isDark),
+                    _buildProgressNode(2, currentStep, color, isIdle, isDark),
+                  ],
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+
+        const SizedBox(height: 6),
+
+        // 阶段标签（精确对齐到圆球）
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SizedBox(
+              width: 56, // 增加到56px，确保"AI扫描中"一行显示
+              child: Center(child: _buildStageLabel('发送中', 0, currentStep, color, isIdle)),
+            ),
+            SizedBox(
+              width: 56,
+              child: Center(child: _buildStageLabel('AI扫描中', 1, currentStep, color, isIdle)),
+            ),
+            SizedBox(
+              width: 56,
+              child: Center(child: _buildStageLabel('已完成', 2, currentStep, color, isIdle)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 进度节点（圆球）
+  Widget _buildProgressNode(int step, int currentStep, Color color, bool isIdle, bool isDark) {
+    final isCompleted = !isIdle && step < currentStep;
+    final isActive = !isIdle && step == currentStep;
+
+    return SizedBox(
+      width: 36, // 40 → 36
+      height: 32, // 36 → 32
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: isActive ? 28 : (isCompleted ? 22 : 16), // 32/26/20 → 28/22/16
+          height: isActive ? 28 : (isCompleted ? 22 : 16),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted || isActive
+                ? color
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            boxShadow: (isCompleted || isActive)
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.5),
+                      blurRadius: isActive ? 10 : 5, // 12/6 → 10/5
+                      spreadRadius: isActive ? 2 : 0, // 3/1 → 2/0
+                    ),
+                  ]
+                : null,
+          ),
+          child: isActive
+              ? _buildActiveNodeContent(color)
+              : (isCompleted ? _buildCompletedNodeContent() : null),
+        ),
+      ),
+    );
+  }
+
+  /// 活跃节点内容（旋转光环）
+  Widget _buildActiveNodeContent(Color color) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 旋转光环
+        AnimatedBuilder(
+          animation: _rotationController,
+          builder: (context, child) {
+            return Transform.rotate(
+              angle: _rotationController.value * 2 * 3.14159,
+              child: Container(
+                width: 28, // 32 → 28
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.6),
+                    width: 2,
+                  ),
+                ),
+                child: CustomPaint(
+                  painter: _ArcPainter(color: color),
+                ),
+              ),
+            );
+          },
+        ),
+
+        // 中心圆点
+        Container(
+          width: 10, // 12 → 10
+          height: 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.5),
+                blurRadius: 5, // 6 → 5
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 已完成节点内容（勾选图标）
+  Widget _buildCompletedNodeContent() {
+    return const Icon(
+      Icons.check,
+      size: 12, // 14 → 12
+      color: Colors.white,
+    );
+  }
+
+  /// 阶段标签
+  Widget _buildStageLabel(String label, int step, int currentStep, Color color, bool isIdle) {
+    final isActive = !isIdle && step == currentStep;
+    final isCompleted = !isIdle && step < currentStep;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12, // 统一12px
+            fontWeight: FontWeight.w600, // 统一W600
+            letterSpacing: 0.5,
+            height: 1.2,
+            color: isIdle
+                ? color.withValues(alpha: 0.5)
+                : (isCompleted || isActive ? color : const Color(0xFF94A3B8)),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        // 活跃状态显示指示点
+        if (!isIdle && isActive) ...[
+          const SizedBox(height: 4),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.8),
+                  blurRadius: 5,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -581,8 +809,6 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
             right: 0,
             child: _buildPageIndicator(),
           ),
-        // 扫描动画覆盖层
-        if (_isAnalyzing) _buildScanOverlay(),
       ],
     );
   }
@@ -609,73 +835,6 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
     );
   }
 
-  Widget _buildScanOverlay() {
-    return Positioned.fill(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color?.withValues(alpha: 0.9),
-        ),
-        child: Center(
-          child: _buildCircularProgress(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCircularProgress() {
-    return AnimatedBuilder(
-      animation: _scanController,
-      builder: (context, child) {
-        return SizedBox(
-          width: 120,
-          height: 120,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CircularProgressIndicator(
-                  value: 1,
-                  strokeWidth: 8,
-                  backgroundColor: const Color(0xFFE2E8F0),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFE2E8F0),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: Transform.rotate(
-                  angle: _scanController.value * 2 * 3.14159,
-                  child: CircularProgressIndicator(
-                    value: 0.7,
-                    strokeWidth: 8,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-                  ),
-                ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.auto_awesome, size: 24),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${(_scanController.value * 100).toInt()}%',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontSize: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildActionCard(AppLocalizations l10n) {
     return Card(
       margin: EdgeInsets.zero,
@@ -697,7 +856,7 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.photo_library_outlined,
-                    label: '${l10n.gallery}(多选)',
+                    label: l10n.gallery,
                     onTap: () => _handlePickMultipleImages(),
                   ),
                 ),
@@ -1160,76 +1319,6 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
       ),
     );
   }
-
-  Widget _buildLoadingOverlay(AppLocalizations l10n) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      color: (isDark ? const Color(0xFF0F172A) : Colors.white).withValues(alpha: 0.95),
-      child: Center(
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-              width: 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Color.lerp(
-                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                            Theme.of(context).colorScheme.primary,
-                            _pulseController.value,
-                          )!,
-                          width: 3,
-                        ),
-                      ),
-                      child: Center(
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  _isSaving ? '批量处理中...' : l10n.analyzing,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _isSaving ? '正在保存 ${_selectedImages.length} 张图片' : l10n.analyzingHint,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: const Color(0xFF64748B),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// 图片选择确认对话框
@@ -1404,6 +1493,81 @@ class _ConfirmImageDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 连接线绘制器
+class _ConnectorLinePainter extends CustomPainter {
+  final Color color;
+  final double progress; // 0.0 到 1.0
+
+  _ConnectorLinePainter({
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 背景线（灰色）
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 3 // 4 → 3
+      ..strokeCap = StrokeCap.round;
+
+    final centerY = size.height / 2;
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      bgPaint,
+    );
+
+    // 进度线（彩色）
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..color = color
+        ..strokeWidth = 3 // 4 → 3
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawLine(
+        Offset(0, centerY),
+        Offset(size.width * progress, centerY),
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+/// 旋转弧线绘制器（用于活跃节点）
+class _ArcPainter extends CustomPainter {
+  final Color color;
+
+  _ArcPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+
+    // 绘制 270° 弧线
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.5 // 3 → 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2, // 从顶部开始
+      2 * 3.14159 * 0.75, // 270°
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _GridPainter extends CustomPainter {

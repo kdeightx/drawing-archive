@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../main.dart';
+import 'ai_api_config_page.dart';
 
 /// 设置页面 - 精密工业风格
 class DrawingSettingsPage extends StatefulWidget {
@@ -85,6 +86,22 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
                         size: 20,
                       ),
                       onTap: () {},
+                    ),
+                    _buildOtherSetting(
+                      icon: Icons.smart_toy_outlined,
+                      title: l10n.aiApiConfig,
+                      subtitle: l10n.aiApiConfigHint,
+                      trailing: const Icon(
+                        Icons.chevron_right_outlined,
+                        color: Color(0xFFCBD5E1),
+                        size: 20,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AiApiConfigPage()),
+                        );
+                      },
                     ),
                   ],
                 ),
