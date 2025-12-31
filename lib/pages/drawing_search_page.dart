@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/drawing_service.dart';
+import '../widgets/search_input_card.dart';
+import '../widgets/search_results_list.dart';
 
 /// 图纸搜索页面 - 精密工业风格
 class DrawingSearchPage extends StatefulWidget {
@@ -112,7 +114,12 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _buildSearchCard(l10n),
+                  child: SearchInputCard(
+                    controller: _searchController,
+                    hintText: l10n.searchPlaceholder,
+                    onSearch: _performSearch,
+                    onSubmitted: (_) => _performSearch(),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -122,7 +129,10 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildResultsList(l10n),
+                    child: SearchResultsList(
+                      results: _results,
+                      isLoading: _isLoading,
+                    ),
                   ),
                 ),
               ],
@@ -149,50 +159,6 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
     return CustomPaint(
       size: Size.infinite,
       painter: _GridPainter(),
-    );
-  }
-
-  Widget _buildSearchCard(AppLocalizations l10n) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: l10n.searchPlaceholder,
-                  border: InputBorder.none,
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 15,
-                  ),
-                ),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-                onSubmitted: (_) => _performSearch(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: _performSearch,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.search, color: Theme.of(context).colorScheme.onPrimary, size: 20),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -227,8 +193,8 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           border: Border.all(
             color: hasFilter
                 ? Theme.of(context).colorScheme.primary
-                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-            width: hasFilter ? 2 : 1,
+                : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
+            width: hasFilter ? 2 : 1.5,
           ),
         ),
         child: Row(
@@ -364,8 +330,8 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-            width: 1,
+            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+            width: 1.5,
           ),
         ),
         child: Row(
@@ -391,106 +357,6 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
     );
   }
 
-  Widget _buildResultsList(AppLocalizations l10n) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 16),
-      itemCount: _results.length,
-      itemBuilder: (context, index) {
-        final item = _results[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildResultCard(item, l10n),
-        );
-      },
-    );
-  }
-
-  Widget _buildResultCard(DrawingEntry item, AppLocalizations l10n) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  Icons.description_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.number,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(item.date),
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: const Color(0xFF64748B),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1FAE5),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        l10n.statusArchived,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_outlined,
-                color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-                size: 24,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _GridPainter extends CustomPainter {

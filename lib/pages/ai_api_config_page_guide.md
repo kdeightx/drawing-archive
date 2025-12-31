@@ -88,6 +88,7 @@ if (_formKey.currentState?.validate() ?? false) {
 | `_buildInfoCard` | 156-198 | 说明卡片（配置引导） |
 | `_buildInputCard` | 200-270 | 可复用的输入卡片组件 |
 | `_buildSaveButton` | 272-294 | 保存按钮（全宽） |
+| `_GridPainter` | 297-316 | 网格背景绘制器 |
 
 ## 修改注意事项
 
@@ -149,6 +150,10 @@ border: OutlineInputBorder(
   ),
 ),
 ```
+
+### 网格背景
+
+页面使用 `_GridPainter` 绘制网格背景（第297-316行）。
 
 ## 相关文件
 

@@ -73,6 +73,7 @@ drawing_settings_page.dart              # 设置页面
 |--------|------|
 | `_transformationController` | 图片缩放变换控制 |
 | `_pageController` | 图片滑动切换控制 |
+| `_scrollController` | 页面滚动控制 |
 | `_pulseController` | 状态球脉冲动画（1500ms，反向重复） |
 
 ### 枚举类型
@@ -133,21 +134,16 @@ final numberItems = List.generate(_selectedImages.length, (index) {
 
 ## UI 子组件
 
-| 方法 | 说明 |
-|------|------|
-| `_buildAppBar` | 顶部导航栏 |
-| `_buildGridBackground` | 网格背景绘制器 |
-| `_buildHeader` | 进度头部（使用 SmartProcessStepper） |
-| `_buildImageCard` | 图片显示卡片（使用 ImageDisplayCard） |
-| `_buildActionCard` | 操作卡片（使用 ActionCard） |
-| `_buildPlaceholder` | 空状态占位符（在 ImageDisplayCard 中） |
-| `_buildImageViewer` | 图片查看器（在 ImageDisplayCard 中） |
-| `_buildPageIndicator` | 页码指示器（在 ImageDisplayCard 中） |
-| `_buildActionButton` | 操作按钮（在 ActionCard 中） |
-| `_buildSearchButton` | 搜索按钮（在 ActionCard 中） |
-| `_buildNumberSection` | 编号区域（在 ActionCard 中） |
-| `_buildNumberItem` | 编号输入项（在 ActionCard 中） |
-| `_buildPaginationButtons` | 分页按钮（在 ActionCard 中） |
+| 方法 | 行号 | 说明 |
+|------|------|------|
+| `_buildAppBar` | 396-414 | 顶部导航栏 |
+| `_buildGridBackground` | 416-421 | 网格背景绘制器 |
+| `_buildHeader` | 423-538 | 进度头部（使用 SmartProcessStepper） |
+| `_buildImageCard` | 540-553 | 图片显示卡片（使用 ImageDisplayCard） |
+| `_buildActionCard` | 556-652 | 操作卡片（使用 ActionCard） |
+| `_showConfirmDialog` | 146-153 | 显示多选确认对话框 |
+| `_ConfirmImageDialog` | 656-827 | 图片选择确认对话框组件 |
+| `_GridPainter` | 829-848 | 网格背景绘制器 |
 
 ## 修改注意事项
 
@@ -186,7 +182,7 @@ static const int _numbersPerPage = 5;
 ### 脉冲动画
 
 ```dart
-// 第59-62行：脉冲动画控制器
+// 第63-66行：脉冲动画控制器
 _pulseController = AnimationController(
   vsync: this,
   duration: const Duration(milliseconds: 1500),
@@ -195,7 +191,15 @@ _pulseController = AnimationController(
 
 ### 确认对话框
 
-多选图片时显示确认对话框，位于文件末尾的 `_ConfirmImageDialog` 类。
+多选图片时显示确认对话框，位于文件末尾的 `_ConfirmImageDialog` 类（第656-827行）。
+
+### SnackBar 显示位置
+
+SnackBar 显示在页面顶部（AppBar 下方），通过计算边距实现（第335-360行）。
+
+### 批量分析
+
+相册多选图片后，会批量分析所有图片（第199-244行）。
 
 ## 相关文件
 

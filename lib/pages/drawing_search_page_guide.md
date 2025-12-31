@@ -50,8 +50,10 @@ dependencies:
 ### 内部依赖
 
 ```
-lib/services/drawing_service.dart  # 业务逻辑服务
-lib/l10n/app_localizations.dart    # 国际化
+lib/services/drawing_service.dart       # 业务逻辑服务
+lib/l10n/app_localizations.dart         # 国际化
+lib/widgets/search_input_card.dart      # 搜索输入框组件
+lib/widgets/search_results_list.dart    # 搜索结果列表组件
 ```
 
 ---
@@ -88,16 +90,12 @@ Navigator.push(
 ### 示例2：执行搜索
 
 ```dart
-// 用户在输入框输入关键词后按回车
-TextField(
+// 通过 SearchInputCard 组件触发
+SearchInputCard(
   controller: _searchController,
+  hintText: l10n.searchPlaceholder,
+  onSearch: _performSearch,
   onSubmitted: (_) => _performSearch(),
-);
-
-// 或点击搜索按钮
-InkWell(
-  onTap: _performSearch,
-  child: Icon(Icons.search),
 );
 ```
 
@@ -105,10 +103,17 @@ InkWell(
 
 ```dart
 // 点击排序按钮切换升序/降序
-setState(() {
-  _isAscending = !_isAscending;
-});
-_loadResults();  // 重新加载数据
+Widget _buildOrderToggle(AppLocalizations l10n) {
+  return InkWell(
+    onTap: () {
+      setState(() {
+        _isAscending = !_isAscending;
+      });
+      _loadResults();  // 重新加载数据
+    },
+    // ...
+  );
+}
 ```
 
 ---
@@ -117,16 +122,15 @@ _loadResults();  // 重新加载数据
 
 | 子组件 | 代码位置 | 说明 |
 |--------|----------|------|
-| `_buildAppBar` | 136-146 | 顶部导航栏（带返回按钮） |
-| `_buildGridBackground` | 148-153 | 网格背景容器 |
-| `_buildSearchCard` | 155-197 | 搜索输入框和搜索按钮 |
-| `_buildFilterSection` | 199-211 | 筛选区域容器（日期+排序） |
-| `_buildDateRangeButton` | 213-269 | 日期范围筛选按钮（功能未实现） |
-| `_buildOrderToggle` | 351-392 | 升序/降序切换按钮 |
-| `_buildResultsList` | 394-411 | 搜索结果列表 |
-| `_buildResultCard` | 413-493 | 单个搜索结果卡片 |
-| `_showDateRangeClearDialog` | 285-349 | 日期清除对话框 |
-| `_GridPainter` | 496-515 | 网格背景绘制 |
+| `_buildAppBar` | 146-156 | 顶部导航栏（带返回按钮） |
+| `_buildGridBackground` | 158-163 | 网格背景容器 |
+| `SearchInputCard` | 117-122 | 搜索输入框和搜索按钮（独立组件） |
+| `_buildFilterSection` | 165-177 | 筛选区域容器（日期+排序） |
+| `_buildDateRangeButton` | 179-235 | 日期范围筛选按钮（功能未实现） |
+| `_buildOrderToggle` | 317-358 | 升序/降序切换按钮 |
+| `SearchResultsList` | 132-136 | 搜索结果列表（独立组件） |
+| `_showDateRangeClearDialog` | 251-315 | 日期清除对话框 |
+| `_GridPainter` | 362-381 | 网格背景绘制 |
 
 ---
 
@@ -136,7 +140,7 @@ _loadResults();  // 重新加载数据
 
 | 功能 | 行号 | 状态 |
 |------|------|------|
-| 日期范围选择器 | 80-89 | 显示"当前功能未实现"提示 |
+| 日期范围选择器 | 82-91 | 显示"当前功能未实现"提示 |
 
 ### 搜索逻辑
 
@@ -145,24 +149,17 @@ _loadResults();  // 重新加载数据
 ### 日期格式化
 
 ```dart
-// 第54-57行：日期格式化函数
+// 第56-59行：日期格式化函数
 String _formatDate(DateTime? date) {
   if (date == null) return '';
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
 ```
 
-### 结果卡片点击
-
-```dart
-// 第419行：点击结果卡片（当前为空操作）
-onTap: () {},
-```
-
 ### 日期筛选清除
 
 ```dart
-// 第92-98行：清除日期筛选并重新加载
+// 第94-100行：清除日期筛选并重新加载
 void _clearDateFilter() {
   setState(() {
     _startDate = null;
@@ -171,6 +168,28 @@ void _clearDateFilter() {
   _loadResults();
 }
 ```
+
+### 组件化改进
+
+**重构前**（已删除）：
+- `_buildSearchCard` - 现在使用 `SearchInputCard` 组件
+- `_buildResultsList` - 现在使用 `SearchResultsList` 组件
+- `_buildResultCard` - 已集成到 `SearchResultsList` 组件内部
+
+**重构后**（当前）：
+- 使用独立的 `SearchInputCard` 组件（第 117-122 行）
+- 使用独立的 `SearchResultsList` 组件（第 132-136 行）
+- 代码更简洁、可复用性更强
+
+### 边框样式增强
+
+筛选按钮的边框样式（第 193-198 行）：
+- 未激活时：1.5px，深色 `#475569`，浅色 `#CBD5E1`
+- 激活时：2px，主题色
+
+### 网格背景
+
+页面使用 `_GridPainter` 绘制网格背景（第 362-381 行）。
 
 ---
 
@@ -181,3 +200,5 @@ void _clearDateFilter() {
 | `lib/services/drawing_service.dart` | 提供搜索功能 |
 | `lib/pages/drawing_scanner_page.dart` | 通过搜索按钮从此页跳转 |
 | `lib/l10n/app_localizations.dart` | 国际化文本 |
+| `lib/widgets/search_input_card_guide.md` | 搜索输入框组件文档 |
+| `lib/widgets/search_results_list_guide.md` | 搜索结果列表组件文档 |

@@ -133,6 +133,7 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
   }
 
   Widget _buildSettingsSection(String title, {required List<Widget> children}) {
+    final isDark = _isDarkMode;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -150,6 +151,14 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
         ),
         Card(
           margin: EdgeInsets.zero,
+          elevation: isDark ? 2 : 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+              width: 1.5,
+            ),
+          ),
           child: Column(children: children),
         ),
       ],

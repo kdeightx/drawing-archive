@@ -156,15 +156,19 @@ class _AiApiConfigPageState extends State<AiApiConfigPage> {
   Widget _buildInfoCard(AppLocalizations l10n) {
     return Card(
       margin: EdgeInsets.zero,
+      elevation: _isDarkMode ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: _isDarkMode ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-            width: 1,
-          ),
         ),
         child: Row(
           children: [
@@ -207,6 +211,14 @@ class _AiApiConfigPageState extends State<AiApiConfigPage> {
   }) {
     return Card(
       margin: EdgeInsets.zero,
+      elevation: _isDarkMode ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: _isDarkMode ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

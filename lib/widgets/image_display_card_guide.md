@@ -133,9 +133,9 @@ Card(
 
 | 方法 | 行号 | 说明 |
 |------|------|------|
-| `_buildPlaceholder` | 46-85 | 空状态占位符（扫描图标 + 提示文字） |
-| `_buildImageViewer` | 88-127 | 图片查看器（PageView + InteractiveViewer） |
-| `_buildPageIndicator` | 130-154 | 页码指示器（底部圆点） |
+| `_buildPlaceholder` | 55-94 | 空状态占位符（扫描图标 + 提示文字） |
+| `_buildImageViewer` | 97-136 | 图片查看器（PageView + InteractiveViewer） |
+| `_buildPageIndicator` | 139-163 | 页码指示器（底部圆点） |
 
 ## 修改注意事项
 
@@ -150,6 +150,12 @@ Card(
 5. **索引变化处理**：切换图片时建议重置 `transformationController`（`Matrix4.identity()`）
 
 6. **图片加载失败**：使用 `errorBuilder` 显示错误图标和文字
+
+7. **边框样式**（第 30-39 行）：
+   - elevation: 深色模式 2，浅色模式 4
+   - 边框宽度：1.5 像素
+   - 边框颜色：深色模式 `#475569`，浅色模式 `#CBD5E1`
+   - 圆角：16 像素
 
 ## 相关文件
 

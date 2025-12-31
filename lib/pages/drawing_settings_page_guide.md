@@ -179,6 +179,10 @@ _buildSettingsSection('其他', children: [...])                // 其他功能
 |------|------|------|
 | AI API 配置 | 90-105 | 跳转到 AiApiConfigPage |
 
+### 网格背景
+
+页面使用 `_GridPainter` 绘制网格背景（第425-444行）。
+
 ---
 
 ## 相关文件

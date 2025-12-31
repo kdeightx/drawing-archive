@@ -74,6 +74,14 @@ class ActionCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      elevation: isDark ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -442,6 +450,9 @@ class ActionCard extends StatelessWidget {
 
   /// 分页按钮
   Widget _buildPaginationButtons(BuildContext context, bool isDark) {
+    final isPrevDisabled = onPreviousPage == null;
+    final isNextDisabled = onNextPage == null;
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -452,32 +463,48 @@ class ActionCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  color: isPrevDisabled
+                      ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 ),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor: Colors.transparent,
               ),
               child: Text(
                 '上一页',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: isPrevDisabled
+                      ? (isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8))
+                      : Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: ElevatedButton(
+            child: OutlinedButton(
               onPressed: onNextPage,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
+              style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
+                side: BorderSide(
+                  color: isNextDisabled
+                      ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                ),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor: Colors.transparent,
               ),
-              child: const Text(
+              child: Text(
                 '下一页',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isNextDisabled
+                      ? (isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8))
+                      : Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           ),

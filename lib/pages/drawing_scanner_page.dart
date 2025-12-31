@@ -50,8 +50,12 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
   ProgressState? _progressState;
   final TransformationController _transformationController = TransformationController();
   final PageController _pageController = PageController();
+  final ScrollController _scrollController = ScrollController();
 
   late AnimationController _pulseController;
+
+  /// 操作区域的 GlobalKey，用于确保删除后该区域在视野内
+  final GlobalKey _actionCardKey = GlobalKey();
 
   @override
   void initState() {
@@ -70,6 +74,7 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
     }
     _transformationController.dispose();
     _pageController.dispose();
+    _scrollController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -115,9 +120,9 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
 
       if (confirmed) {
         // 初始化编号列表和控制器
-        final List<String> numbers = List.filled(images.length, '');
+        final List<String> numbers = List.filled(images.length, '', growable: true);
         final List<TextEditingController> controllers =
-            List.generate(images.length, (index) => TextEditingController());
+            List.generate(images.length, (index) => TextEditingController(), growable: true);
 
         setState(() {
           _selectedImages = images;
@@ -226,7 +231,11 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
         setState(() => _progressState = null);
       }
 
-      _showSnackBar('已完成 ${_selectedImages.length} 张图片的识别', isError: false);
+      _showSnackBar(
+        '已完成 ${_selectedImages.length} 张图片的识别',
+        isError: false,
+        isSuccess: true,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _progressState = null);
@@ -305,21 +314,48 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
     });
   }
 
-  void _showSnackBar(String message, {required bool isError}) {
+  void _showSnackBar(String message, {required bool isError, bool isSuccess = false}) {
     if (!mounted) return;
+
+    // 根据类型确定颜色和图标
+    Color backgroundColor;
+    IconData icon;
+
+    if (isError) {
+      backgroundColor = Theme.of(context).colorScheme.error;
+      icon = Icons.error_outline;
+    } else if (isSuccess) {
+      backgroundColor = const Color(0xFF10B981); // 绿色
+      icon = Icons.check_circle;
+    } else {
+      backgroundColor = Theme.of(context).colorScheme.primary;
+      icon = Icons.check_circle;
+    }
+
+    // 计算 AppBar 高度 + 顶部安全区域 + 间距
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+    final double topPadding = mediaQuery.padding.top; // 顶部安全区域（状态栏）
+    final double appBarHeight = kToolbarHeight; // AppBar 默认高度 56
+    final double topPosition = topPadding + appBarHeight + 8; // +8 像素间距
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(isError ? Icons.error_outline : Icons.check_circle, color: Colors.white, size: 20),
+            Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: isError ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+        backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
+        // 显示在 AppBar 下方
+        margin: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: mediaQuery.size.height - topPosition - 60, // 计算底部边距，使SnackBar显示在顶部
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -337,6 +373,7 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
           _buildGridBackground(),
           SafeArea(
             child: SingleChildScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -441,16 +478,19 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
 
     return Card(
       margin: EdgeInsets.zero,
+      elevation: isDark ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border(
-            bottom: BorderSide(
-              color: baseBlue.withValues(alpha: 0.15),
-              width: 2,
-            ),
-          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,6 +568,7 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
     final totalPages = (_selectedImages.length / _numbersPerPage).ceil();
 
     return ActionCard(
+      key: _actionCardKey,
       onCameraTap: () => _handlePickImage(ImageSource.camera),
       onGalleryTap: _handlePickMultipleImages,
       onSearchTap: () {
@@ -546,7 +587,7 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
         // 编号变化时更新控制器
         _numberControllers[index].text = numberItems[index].number;
       },
-      onDeleteTap: (index) {
+      onDeleteTap: (index) async {
         setState(() {
           _selectedImages.removeAt(index);
           _numberControllers[index].dispose();
@@ -559,19 +600,49 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
             _numberPage--;
           }
         });
+
+        // 等待 setState 完成后，确保操作区域在可视范围内
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted && _actionCardKey.currentContext != null) {
+          Scrollable.ensureVisible(
+            _actionCardKey.currentContext!,
+            duration: const Duration(milliseconds: 300),
+            alignment: 0.2, // 操作区域显示在屏幕上方 20% 的位置
+          );
+        }
       },
       onPreviousPage: _numberPage > 0
-          ? () {
+          ? () async {
               setState(() {
                 _numberPage--;
               });
+
+              // 等待 setState 完成后，确保操作区域在可视范围内
+              await Future.delayed(const Duration(milliseconds: 100));
+              if (mounted && _actionCardKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  _actionCardKey.currentContext!,
+                  duration: const Duration(milliseconds: 300),
+                  alignment: 0.2,
+                );
+              }
             }
           : null,
       onNextPage: _numberPage < totalPages - 1
-          ? () {
+          ? () async {
               setState(() {
                 _numberPage++;
               });
+
+              // 等待 setState 完成后，确保操作区域在可视范围内
+              await Future.delayed(const Duration(milliseconds: 100));
+              if (mounted && _actionCardKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  _actionCardKey.currentContext!,
+                  duration: const Duration(milliseconds: 300),
+                  alignment: 0.2,
+                );
+              }
             }
           : null,
       onSave: _handleSave,
