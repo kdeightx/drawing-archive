@@ -33,6 +33,7 @@
 | 组件名称 | 文档路径 | 简要描述 |
 |---------|---------|---------|
 | DrawingScannerViewModel | lib/comp_src/view_models/drawing_scanner_view_model_guide.md | 图纸扫描页面的状态管理，管理图片选择、AI 识别、编号输入、旋转控制 |
+| AiApiConfigViewModel | lib/comp_src/view_models/ai_api_config_view_model_guide.md | AI API 配置的状态管理，管理 API 配置的持久化、测试连接和验证 |
 
 ---
 

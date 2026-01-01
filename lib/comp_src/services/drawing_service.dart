@@ -1,10 +1,11 @@
 import 'dart:io' as io;
-import 'dart:math';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart' as image_picker;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 图片来源枚举
 enum ImageSource { camera, gallery }
@@ -230,13 +231,129 @@ class DrawingService {
       }
     }
 
-    // TODO: 实际实现需要调用 AI/OCR 服务
-    // return await ocrService.recognizeDrawingNumber(image);
+    // 调用真实 AI API 识别图纸编号
+    return await _recognizeDrawingNumberWithAI(image);
+  }
 
-    // 当前为模拟实现
-    await Future.delayed(const Duration(seconds: 2));
-    final random = Random();
-    return '${random.nextInt(9) + 1}.${100 + random.nextInt(900)}-${1000 + random.nextInt(9000)}';
+  /// 使用真实 AI API 识别图纸编号
+  ///
+  /// 从 SharedPreferences 加载 API 配置，调用 AI 识别图纸编号
+  Future<String> _recognizeDrawingNumberWithAI(io.File image) async {
+    try {
+      // 加载 API 配置
+      final prefs = await SharedPreferences.getInstance();
+      final baseUrl = prefs.getString('ai_api_base_url') ?? 'https://api.302.ai/v1';
+      final apiKey = prefs.getString('ai_api_key') ?? '';
+      final modelName = prefs.getString('ai_model_name') ?? 'gemini-1.5-flash-exp';
+
+      // 检查配置是否有效
+      if (apiKey.isEmpty) {
+        throw Exception('API Key 未配置，请先在设置中配置 AI API');
+      }
+
+      // 读取图片并转换为 Base64
+      final imageBytes = await image.readAsBytes();
+      final base64Image = base64Encode(imageBytes);
+      final mimeType = _getImageMimeType(image.path);
+
+      // 构建 data URI
+      final dataUri = 'data:$mimeType;base64,$base64Image';
+
+      // 构建请求 URL
+      final Uri uri = Uri.parse('$baseUrl/chat/completions');
+
+      // 构建请求体（多模态格式）
+      final Map<String, dynamic> requestBody = {
+        'model': modelName,
+        'stream': false,
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'text',
+                'text': '''请识别这张机械图纸中的图纸编号。
+要求：
+1. 只返回图纸编号，不要返回任何其他文字
+2. 图纸编号格式通常为：数字.数字-数字（如：1.0101-1100）
+3. 如果图片中没有清晰的图纸编号，请返回 "未识别"
+4. 不要添加任何解释或说明''',
+              },
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url': dataUri,
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      // 发送请求
+      debugPrint('正在调用 AI API 识别图纸编号...');
+      final response = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('AI 识别超时');
+        },
+      );
+
+      // 检查响应
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String? content = responseData['choices']?.first['message']?['content'];
+
+        if (content == null || content.isEmpty) {
+          throw Exception('AI 未返回识别结果');
+        }
+
+        // 清理结果（去除可能的换行和多余空格）
+        final cleanResult = content.trim().replaceAll('\n', '').replaceAll('\r', '');
+        debugPrint('✓ AI 识别结果: $cleanResult');
+
+        // 检查是否是有效的图纸编号格式
+        final numberPattern = RegExp(r'^\d+\.\d+-\d+$');
+        if (!numberPattern.hasMatch(cleanResult)) {
+          throw Exception('AI 识别结果格式不正确: "$cleanResult"，期望格式：数字.数字-数字（如：1.0101-1100）');
+        }
+
+        return cleanResult;
+      } else {
+        final errorData = jsonDecode(response.body);
+        final errorMsg = errorData['error']?['message'] ?? '未知错误';
+        debugPrint('✗ AI 识别失败 (${response.statusCode}): $errorMsg');
+        throw Exception('AI 识别失败 (${response.statusCode}): $errorMsg');
+      }
+    } catch (e) {
+      debugPrint('✗ AI 识别失败: $e');
+      rethrow; // 直接抛出异常，不再使用模拟数据
+    }
+  }
+
+  /// 根据文件路径获取 MIME 类型
+  String _getImageMimeType(String filePath) {
+    final extension = filePath.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
+    }
   }
 
   /// 保存图纸归档记录
