@@ -42,7 +42,7 @@ demo/lib/comp_src/widgets/action_card.dart
     - 标题行（图标 + 文字 + 页码 + 数量）
     - 编号列表（图片缩略图 + 序号 + 输入框 + AI标识 + 删除按钮）
     - 分页按钮（超过5张时）
-    - 操作按钮行（清空 + 上传识别 + 保存）
+  - 操作按钮行（使用 ActionButtons 组件：清空 + 上传识别 + 保存）
 - **点击缩略图**：打开 FullScreenImageViewer 全屏预览，支持手势缩放、旋转、滑动切换
 
 ## 依赖项
@@ -54,6 +54,7 @@ demo/lib/comp_src/widgets/action_card.dart
 
 ### 内部依赖
 - `../view_models/drawing_scanner_view_model.dart` - 图片数据和旋转状态管理
+- `action_buttons.dart` - 操作按钮组件（清空、上传识别、保存）
 - `full_screen_image_viewer.dart` - 全屏图片预览组件（点击缩略图时使用）
 
 ### 数据模型
@@ -207,72 +208,42 @@ ActionCard(
 
 5. **分页按钮状态**：`onPreviousPage` 和 `onNextPage` 为 `null` 时按钮自动禁用
 
-6. **保存和上传按钮状态**：当 `isAnalyzing` 或 `isSaving` 为 `true` 时保存和上传按钮禁用
+6. **图片缩略图**：使用 48x48 固定尺寸，`BoxFit.cover` 裁剪，**可点击打开全屏预览**
 
-7. **图片缩略图**：使用 48x48 固定尺寸，`BoxFit.cover` 裁剪，**可点击打开全屏预览**
+7. **AI 识别标识**：仅当 `NumberItem.hasAiNumber` 为 `true` 时显示星星图标
 
-8. **AI 识别标识**：仅当 `NumberItem.hasAiNumber` 为 `true` 时显示星星图标
-
-9. **边框增强样式**（第 90-96 行）：
+8. **边框增强样式**（第 90-96 行）：
    - Card 组件增加了 `side` 边框属性
    - 深色模式：边框颜色 `#94A3B8`，宽度 2.0
    - 浅色模式：边框颜色 `#CBD5E1`，宽度 1.5
 
-10. **分页按钮禁用样式**（第 607-629 行）：
+9. **分页按钮禁用样式**（第 607-629 行）：
     - 禁用状态边框颜色：深色 `#334155`，浅色 `#E2E8F0`
     - 禁用状态文字颜色：深色 `#475569`，浅色 `#94A3B8`
     - 启用状态边框颜色：主题色带 30% 透明度
     - 启用状态文字颜色：主题色
 
-11. **保存按钮禁用样式**（第 354-355 行）：
-    - 禁用背景颜色：深色 `#475569`，浅色 `#E2E8F0`
-
-12. **操作按钮布局**（第 277-377 行）：
-    - 三个按钮使用 Flex 布局，比例为 1:2:2
-    - 清空按钮：OutlinedButton，红色（深色 #EF4444，浅色 #DC2626），icon-only，flex 1
-    - 上传识别按钮：OutlinedButton，主题色，flex 2
-    - 保存按钮：ElevatedButton，主题色，flex 2
-    - 按钮间距：8px
-    - 图标大小：18px
-    - 文字大小：14px
-    - 使用 `tapTargetSize: MaterialTapTargetSize.shrinkWrap` 优化小屏幕布局
-
-13. **主题适配**（第 312、316、354 行）：
-    - 上传识别按钮和保存按钮使用 `Theme.of(context).colorScheme.primary` 适配主题
-    - 不再使用硬编码颜色（如 #F59E0B 橙色）
-    - 自动适配深色/浅色主题切换
-
-14. **AlwaysStoppedAnimation 修复**（第 328-330 行）：
-    - CircularProgressIndicator 的 valueColor 使用正确语法
-    - 直接传入颜色值，而非使用 `color:` 命名参数
-    - 正确写法：`AlwaysStoppedAnimation<Color>(colorValue)`
-
-15. **输入框焦点管理**（第 525-528 行）：
+10. **输入框焦点管理**（第 525-528 行）：
     - 使用 TextField 的 `onTapOutside` 属性处理外部点击
     - 点击输入框外部时自动取消焦点（Flutter 3.13+ 特性）
     - 替代了外层 GestureDetector 方案（TextField 会消费 tap 事件）
 
-16. **识别失败状态显示**（第 517 行）：
+11. **识别失败状态显示**（第 517 行）：
     - 输入框 hint 文本根据 `item.recognitionFailed` 动态显示
     - 识别失败：显示 "识别失败"
     - 正常状态：显示 "输入图纸编号"
 
-17. **上传识别按钮禁用逻辑**（第 308 行）：
-    - 当 `isAnalyzing` 为 true 时禁用（全局识别状态）
-    - 当 `isSaving` 为 true 时禁用
-    - 当 `numberItems` 为空时禁用
-    - 当 `onUpload` 为 null 时不显示该按钮
-
-18. **清空按钮禁用逻辑**（第 285 行）：
-    - 当 `isAnalyzing` 为 true 时禁用
-    - 当 `isSaving` 为 true 时禁用
-    - 当 `numberItems` 为空时禁用
-    - 当 `onClearAll` 为 null 时不显示该按钮
+12. **操作按钮组件**（第 278-285 行）：
+    - 使用独立的 ActionButtons 组件显示三个操作按钮
+    - 清空、上传识别、保存按钮的样式和禁用逻辑在 ActionButtons 组件中实现
+    - 详见 `action_buttons_guide.md`
 
 ## 相关文件
 
 - `lib/comp_src/pages/drawing_scanner_page.dart` - 使用该组件的主页面
 - `lib/comp_src/view_models/drawing_scanner_view_model.dart` - 提供图片数据和状态管理
+- `lib/comp_src/widgets/action_buttons.dart` - 操作按钮组件（清空、上传识别、保存）
+- `lib/comp_src/widgets/action_buttons_guide.md` - 操作按钮组件文档
 - `lib/comp_src/widgets/full_screen_image_viewer.dart` - 全屏图片预览组件
 - `lib/comp_src/widgets/full_screen_image_viewer_guide.md` - 全屏预览组件文档
 - `lib/comp_src/widgets/smart_process_stepper_guide.md` - 进度指示器组件文档

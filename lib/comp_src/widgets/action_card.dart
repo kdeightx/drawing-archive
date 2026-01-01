@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../view_models/drawing_scanner_view_model.dart';
+import 'action_buttons.dart';
 import 'full_screen_image_viewer.dart';
 
 /// 编号项数据模型
@@ -273,109 +274,14 @@ class ActionCard extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // 保存和清空按钮
-        Row(
-          children: [
-            // 清空按钮（次要按钮）
-            Expanded(
-              flex: 1,
-              child: SizedBox(
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: (isAnalyzing || isSaving || numberItems.isEmpty) ? null : onClearAll,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626),
-                    side: BorderSide(
-                      color: (isAnalyzing || isSaving || numberItems.isEmpty)
-                          ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
-                          : (isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626)),
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Icon(Icons.delete_outline, size: 18),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 上传识别按钮
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: (isAnalyzing || isSaving || numberItems.isEmpty || onUpload == null) ? null : onUpload,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isAnalyzing
-                        ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
-                        : Theme.of(context).colorScheme.primary,
-                    side: BorderSide(
-                      color: (isAnalyzing || isSaving || numberItems.isEmpty)
-                          ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
-                          : Theme.of(context).colorScheme.primary,
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: isAnalyzing
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-                            ),
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.cloud_upload_outlined, size: 18),
-                            SizedBox(width: 6),
-                            Text('上传识别', style: TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 保存按钮（主要操作）
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: (isAnalyzing || isSaving) ? null : onSave,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    disabledBackgroundColor: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check, size: 18),
-                            SizedBox(width: 6),
-                            Text('保存图片', style: TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-          ],
+        // 操作按钮行（清空 + 上传识别 + 保存）
+        ActionButtons(
+          onClearAll: onClearAll,
+          onUpload: onUpload,
+          onSave: onSave,
+          isAnalyzing: isAnalyzing,
+          isSaving: isSaving,
+          isListEmpty: numberItems.isEmpty,
         ),
       ],
     );

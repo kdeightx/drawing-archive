@@ -17,7 +17,8 @@
 |---------|---------|---------|
 | SmartProcessStepper | lib/comp_src/widgets/smart_process_stepper_guide.md | 进度指示器组件，展示处理步骤和当前进度 |
 | ImageDisplayCard | lib/comp_src/widgets/image_display_card_guide.md | 图片展示卡片，显示扫描的图纸图片 |
-| ActionCard | lib/comp_src/widgets/action_card_guide.md | 操作卡片组件，提供用户操作按钮（如删除、翻页）|
+| ActionCard | lib/comp_src/widgets/action_card_guide.md | 操作卡片组件，提供图片选择、编号输入、分页等功能 |
+| ActionButtons | lib/comp_src/widgets/action_buttons_guide.md | 操作按钮组件，显示清空、上传识别、保存三个按钮 |
 | SearchInputCard | lib/comp_src/widgets/search_input_card_guide.md | 搜索输入框组件，支持关键词输入和搜索触发 |
 | SearchResultsList | lib/comp_src/widgets/search_results_list_guide.md | 搜索结果列表组件，展示搜索结果和分页控制 |
 | FullScreenImageViewer | lib/comp_src/widgets/full_screen_image_viewer_guide.md | 全屏图片预览组件，支持多图查看、手势缩放、旋转和沉浸式交互 |
