@@ -20,6 +20,7 @@
 | ActionCard | lib/comp_src/widgets/action_card_guide.md | 操作卡片组件，提供用户操作按钮（如删除、翻页）|
 | SearchInputCard | lib/comp_src/widgets/search_input_card_guide.md | 搜索输入框组件，支持关键词输入和搜索触发 |
 | SearchResultsList | lib/comp_src/widgets/search_results_list_guide.md | 搜索结果列表组件，展示搜索结果和分页控制 |
+| FullScreenImageViewer | lib/comp_src/widgets/full_screen_image_viewer_guide.md | 全屏图片预览组件，支持多图查看、手势缩放、旋转和沉浸式交互 |
 
 ## 服务组件
 
@@ -31,7 +32,7 @@
 
 | 组件名称 | 文档路径 | 简要描述 |
 |---------|---------|---------|
-| *暂无* | - | - |
+| DrawingScannerViewModel | lib/comp_src/view_models/drawing_scanner_view_model_guide.md | 图纸扫描页面的状态管理，管理图片选择、AI 识别、编号输入、旋转控制 |
 
 ---
 

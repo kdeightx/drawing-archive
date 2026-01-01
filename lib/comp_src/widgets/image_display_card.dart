@@ -3,15 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 /// 图片显示卡片组件 - 支持多图查看、缩放、滑动切换
-class ImageDisplayCard extends StatelessWidget {
+class ImageDisplayCard extends StatefulWidget {
   /// 图片列表
   final List<File> images;
   /// 当前查看的图片索引
   final int currentIndex;
-  /// PageController 用于滑动切换
-  final PageController pageController;
-  /// TransformationController 用于缩放平移
-  final TransformationController transformationController;
   /// 索引变化回调
   final ValueChanged<int> onIndexChange;
 
@@ -19,10 +15,47 @@ class ImageDisplayCard extends StatelessWidget {
     super.key,
     required this.images,
     required this.currentIndex,
-    required this.pageController,
-    required this.transformationController,
     required this.onIndexChange,
   });
+
+  @override
+  State<ImageDisplayCard> createState() => _ImageDisplayCardState();
+}
+
+class _ImageDisplayCardState extends State<ImageDisplayCard> {
+  /// PageController 用于滑动切换
+  late PageController _pageController;
+
+  /// TransformationController 用于缩放平移
+  late TransformationController _transformationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: widget.currentIndex);
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void didUpdateWidget(ImageDisplayCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当 currentIndex 变化时，更新 PageController
+    // 使用 addPostFrameCallback 避免在 build 期间触发 notifyListeners
+    if (widget.currentIndex != oldWidget.currentIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(widget.currentIndex);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _transformationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +78,7 @@ class ImageDisplayCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: images.isEmpty ? _buildPlaceholder(context) : _buildImageViewer(context),
+          child: widget.images.isEmpty ? _buildPlaceholder(context) : _buildImageViewer(context),
         ),
       ),
     );
@@ -100,17 +133,17 @@ class ImageDisplayCard extends StatelessWidget {
       children: [
         // 图片查看器（支持滑动切换）
         PageView.builder(
-          controller: pageController,
-          itemCount: images.length,
-          onPageChanged: onIndexChange,
+          controller: _pageController,
+          itemCount: widget.images.length,
+          onPageChanged: widget.onIndexChange,
           itemBuilder: (context, index) {
             return InteractiveViewer(
-              transformationController: transformationController,
+              transformationController: _transformationController,
               minScale: 0.5,
               maxScale: 4.0,
               child: Center(
                 child: Image.file(
-                  images[index],
+                  widget.images[index],
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return Center(
@@ -130,7 +163,7 @@ class ImageDisplayCard extends StatelessWidget {
           },
         ),
         // 多张图片时显示指示器
-        if (images.length > 1) _buildPageIndicator(context),
+        if (widget.images.length > 1) _buildPageIndicator(context),
       ],
     );
   }
@@ -144,14 +177,14 @@ class ImageDisplayCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
-          images.length,
+          widget.images.length,
           (index) => AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: currentIndex == index ? 24 : 8,
+            width: widget.currentIndex == index ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: currentIndex == index
+              color: widget.currentIndex == index
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(4),

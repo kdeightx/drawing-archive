@@ -198,8 +198,8 @@ class DrawingService {
     if (_aiImagesDirectory != null) {
       try {
         final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
-        final copiedFile = await image.copy('${_aiImagesDirectory!.path}/$fileName');
-        debugPrint('已复制图片到存储文件夹: ${copiedFile.path}');
+        await image.copy('${_aiImagesDirectory!.path}/$fileName');
+        debugPrint('已复制图片到存储文件夹: $fileName');
       } catch (e) {
         debugPrint('复制图片失败: $e');
       }
@@ -215,13 +215,74 @@ class DrawingService {
   }
 
   /// 保存图纸归档记录
+  ///
+  /// 将图片重命名为图纸编号并保存到 DrawingScanner 文件夹
+  /// 如果同名文件已存在，则直接覆盖
+  /// [image] 要保存的图片文件
+  /// [finalNumber] 识别出的图纸编号（作为文件名）
   Future<void> saveEntry(io.File image, String finalNumber) async {
-    // TODO: 实际实现需要保存到数据库/服务器
-    // await database.saveDrawingEntry(image, finalNumber);
+    if (_aiImagesDirectory == null) {
+      throw Exception('存储文件夹未初始化');
+    }
 
-    // 当前为模拟实现
-    await Future.delayed(const Duration(seconds: 1));
-    debugPrint('保存成功: $finalNumber');
+    try {
+      // 获取文件扩展名
+      final fileExtension = image.path.split('.').last.toLowerCase();
+      final newFileName = '$finalNumber.$fileExtension';
+      final newPath = '${_aiImagesDirectory!.path}/$newFileName';
+
+      // 直接复制并重命名文件（如果文件已存在会自动覆盖）
+      await image.copy(newPath);
+      debugPrint('✓ 已保存图纸: $newFileName → $newPath');
+    } catch (e) {
+      debugPrint('✗ 保存失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 清理所有未保存的临时图片
+  ///
+  /// 扫描 DrawingScanner/ 目录，删除所有 AI_ 开头的临时文件
+  /// 保留所有已重命名的图片（不以 AI_ 开头的文件）
+  Future<void> clearAllTempImages() async {
+    if (_aiImagesDirectory == null) {
+      debugPrint('存储文件夹未初始化，无法清理临时文件');
+      return;
+    }
+
+    try {
+      // 列出目录中的所有文件
+      final files = _aiImagesDirectory!.listSync();
+
+      // 筛选出所有临时文件（AI_ 开头）
+      final tempFiles = files.whereType<io.File>().where((file) {
+        final fileName = file.path.split('/').last;
+        return fileName.startsWith('AI_');
+      }).toList();
+
+      if (tempFiles.isEmpty) {
+        debugPrint('✓ 没有需要清理的临时文件');
+        return;
+      }
+
+      // 删除所有临时文件
+      int deletedCount = 0;
+      for (var tempFile in tempFiles) {
+        try {
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+            debugPrint('✓ 已删除临时文件: ${tempFile.path}');
+            deletedCount++;
+          }
+        } catch (e) {
+          debugPrint('删除临时文件失败 ${tempFile.path}: $e');
+        }
+      }
+
+      debugPrint('✓ 共清理了 $deletedCount 个临时文件');
+    } catch (e) {
+      debugPrint('清理临时文件失败: $e');
+    }
   }
 
   /// 搜索已归档图纸

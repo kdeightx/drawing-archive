@@ -1,6 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../view_models/drawing_scanner_view_model.dart';
+import 'full_screen_image_viewer.dart';
 
 /// 编号项数据模型
 class NumberItem {
@@ -337,30 +341,34 @@ class ActionCard extends StatelessWidget {
       child: Row(
         children: [
           // 图片缩略图
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
-                width: isDark ? 1.5 : 1,
+          InkWell(
+            onTap: () => _showFullScreenPreview(context, item.index),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+                  width: isDark ? 1.5 : 1,
+                ),
               ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                item.image,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      size: 20,
-                      color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-                    ),
-                  );
-                },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  item.image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        size: 20,
+                        color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -509,6 +517,22 @@ class ActionCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 显示全屏预览
+  void _showFullScreenPreview(BuildContext context, int index) {
+    final viewModel = context.read<DrawingScannerViewModel>();
+    viewModel.setCurrentImageIndex(index);
+    viewModel.resetRotation();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChangeNotifierProvider.value(
+          value: viewModel,
+          child: const FullScreenImageViewer(),
+        ),
       ),
     );
   }

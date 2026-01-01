@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
 import 'comp_src/pages/drawing_scanner_page.dart';
@@ -67,21 +68,27 @@ class _DrawingScannerAppState extends State<DrawingScannerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '机械图纸归档助手',
-      debugShowCheckedModeBanner: false,
+    return MultiProvider(
+      providers: [
+        // 提供 DrawingService 给整个应用
+        Provider<DrawingService>.value(value: _drawingService),
+      ],
+      child: MaterialApp(
+        title: '机械图纸归档助手',
+        debugShowCheckedModeBanner: false,
 
-      // 国际化配置
-      theme: _buildTheme(),
-      darkTheme: _buildDarkTheme(),
-      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        // 国际化配置
+        theme: _buildTheme(),
+        darkTheme: _buildDarkTheme(),
+        themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: _locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: _locale,
 
-      home: DrawingScannerPage(
-        drawingService: _drawingService,
+        home: DrawingScannerPage(
+          drawingService: _drawingService,
+        ),
       ),
     );
   }
