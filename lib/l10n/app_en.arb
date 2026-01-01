@@ -64,5 +64,6 @@
   "enterNumber": "Please enter or confirm drawing number",
   "recognizeFailed": "AI recognition failed",
   "saveFailed": "Save failed",
+  "saveSuccess": "Saved {count} image(s)",
   "searchCompleted": "Search completed"
 }

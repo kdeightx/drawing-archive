@@ -300,21 +300,11 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
           final count = await viewModel.saveAllImages();
           if (!context.mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                  const SizedBox(width: 12),
-                  Text('已保存 $count 张图片'),
-                ],
-              ),
-              backgroundColor: const Color(0xFF10B981),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              margin: const EdgeInsets.all(16),
-              duration: const Duration(seconds: 2),
-            ),
+          _showSnackBar(
+            context,
+            l10n.saveSuccess(count),
+            isError: false,
+            isSuccess: true,
           );
         } catch (e) {
           if (!context.mounted) return;
@@ -361,6 +351,7 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        // 通过设置大的 bottom margin 将 SnackBar 推到顶部
         margin: EdgeInsets.only(
           left: 16,
           right: 16,

@@ -64,5 +64,6 @@
   "enterNumber": "请输入或确认图纸编号",
   "recognizeFailed": "AI识别失败",
   "saveFailed": "保存失败",
+  "saveSuccess": "已保存 {count} 张图片",
   "searchCompleted": "搜索完成"
 }

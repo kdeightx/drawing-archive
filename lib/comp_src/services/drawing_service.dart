@@ -192,10 +192,35 @@ class DrawingService {
     return false;
   }
 
+  /// 复制图片到临时文件夹
+  ///
+  /// 将图片复制到 DrawingScanner/AI_ 文件夹
+  /// 返回复制后的临时文件，可用于后续删除
+  Future<io.File> copyImageToTempFolder(io.File image) async {
+    if (_aiImagesDirectory == null) {
+      throw Exception('存储文件夹未初始化');
+    }
+
+    try {
+      final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
+      final tempPath = '${_aiImagesDirectory!.path}/$fileName';
+      await image.copy(tempPath);
+      final tempFile = io.File(tempPath);
+      debugPrint('✓ 已复制图片到临时文件夹: $fileName');
+      return tempFile;
+    } catch (e) {
+      debugPrint('复制图片失败: $e');
+      rethrow;
+    }
+  }
+
   /// 分析图片，识别图纸编号
-  Future<String> analyzeImage(io.File image) async {
+  ///
+  /// [image] 要分析的图片文件
+  /// [shouldCopy] 是否复制到临时文件夹（默认 true）
+  Future<String> analyzeImage(io.File image, {bool shouldCopy = true}) async {
     // 将图片复制到 AI 图片存储文件夹
-    if (_aiImagesDirectory != null) {
+    if (shouldCopy && _aiImagesDirectory != null) {
       try {
         final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
         await image.copy('${_aiImagesDirectory!.path}/$fileName');
@@ -236,6 +261,34 @@ class DrawingService {
       debugPrint('✓ 已保存图纸: $newFileName → $newPath');
     } catch (e) {
       debugPrint('✗ 保存失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 删除单个临时图片文件
+  ///
+  /// 只删除 AI_ 开头的临时文件，不删除已归档的文件
+  /// 如果文件不存在或不是临时文件，则忽略
+  Future<void> deleteTempImage(io.File image) async {
+    try {
+      // 检查文件是否存在
+      if (!await image.exists()) {
+        debugPrint('文件不存在，跳过删除: ${image.path}');
+        return;
+      }
+
+      // 检查是否是临时文件（AI_ 开头）
+      final fileName = image.path.split('/').last;
+      if (!fileName.startsWith('AI_')) {
+        debugPrint('文件不是临时文件，跳过删除: $fileName');
+        return;
+      }
+
+      // 删除临时文件
+      await image.delete();
+      debugPrint('✓ 已删除临时文件: $fileName');
+    } catch (e) {
+      debugPrint('删除临时文件失败 ${image.path}: $e');
       rethrow;
     }
   }

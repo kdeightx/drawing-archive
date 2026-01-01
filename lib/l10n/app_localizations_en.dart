@@ -201,5 +201,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveFailed => 'Save failed';
 
   @override
+  String saveSuccess(Object count) {
+    return 'Saved $count image(s)';
+  }
+
+  @override
   String get searchCompleted => 'Search completed';
 }

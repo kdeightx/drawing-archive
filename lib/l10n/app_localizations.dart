@@ -479,6 +479,12 @@ abstract class AppLocalizations {
   /// **'Save failed'**
   String get saveFailed;
 
+  /// No description provided for @saveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved {count} image(s)'**
+  String saveSuccess(Object count);
+
   /// No description provided for @searchCompleted.
   ///
   /// In en, this message translates to:

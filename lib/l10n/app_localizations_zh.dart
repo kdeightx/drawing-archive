@@ -201,5 +201,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveFailed => '保存失败';
 
   @override
+  String saveSuccess(Object count) {
+    return '已保存 $count 张图片';
+  }
+
+  @override
   String get searchCompleted => '搜索完成';
 }

@@ -75,6 +75,9 @@ class DrawingScannerViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // 先清理上一轮的临时文件
+      await _clearCurrentTempImages();
+
       final File? image = await drawingService.pickImage(ImageSource.camera);
       if (image == null) {
         _isAnalyzing = false;
@@ -82,7 +85,10 @@ class DrawingScannerViewModel extends ChangeNotifier {
         return;
       }
 
-      _selectedImages = [image];
+      // 复制到临时文件夹
+      final tempFile = await drawingService.copyImageToTempFolder(image);
+
+      _selectedImages = [tempFile];
       _currentImageIndex = 0;
       _recognizedNumbers = [''];
       _numberControllers = [TextEditingController()];
@@ -101,15 +107,26 @@ class DrawingScannerViewModel extends ChangeNotifier {
   /// 选择多张图片（相册）
   Future<bool> pickMultipleImages() async {
     try {
+      // 先清理上一轮的临时文件
+      await _clearCurrentTempImages();
+
       final List<File> images = await drawingService.pickMultipleImages();
       if (images.isEmpty) return false;
 
-      // 初始化编号列表和控制器
-      final List<String> numbers = List.filled(images.length, '', growable: true);
-      final List<TextEditingController> controllers =
-          List.generate(images.length, (index) => TextEditingController(), growable: true);
+      // 复制所有图片到临时文件夹，获取临时文件路径
+      final List<File> tempImages = [];
+      for (var image in images) {
+        final tempFile = await drawingService.copyImageToTempFolder(image);
+        tempImages.add(tempFile);
+      }
 
-      _selectedImages = images;
+      // 初始化编号列表和控制器
+      final List<String> numbers = List.filled(tempImages.length, '', growable: true);
+      final List<TextEditingController> controllers =
+          List.generate(tempImages.length, (index) => TextEditingController(), growable: true);
+
+      // 使用临时文件路径（AI_ 开头）
+      _selectedImages = tempImages;
       _currentImageIndex = 0;
       _recognizedNumbers = numbers;
       _numberControllers = controllers;
@@ -121,6 +138,20 @@ class DrawingScannerViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// 清理当前选中的临时图片
+  ///
+  /// 在重新选择图片之前，删除上一轮未保存的临时文件
+  Future<void> _clearCurrentTempImages() async {
+    for (var image in _selectedImages) {
+      try {
+        await drawingService.deleteTempImage(image);
+      } catch (e) {
+        // 忽略删除失败的文件（可能已被手动删除）
+        debugPrint('清理临时文件失败: $e');
+      }
     }
   }
 
@@ -141,7 +172,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
     try {
       final File currentImage = _selectedImages[_currentImageIndex];
-      final String number = await drawingService.analyzeImage(currentImage);
+      final String number = await drawingService.analyzeImage(currentImage, shouldCopy: false);
 
       // 显示进度：完成
       _progressState = ProgressState.completed;
@@ -177,7 +208,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
-        final String number = await drawingService.analyzeImage(_selectedImages[i]);
+        final String number = await drawingService.analyzeImage(_selectedImages[i], shouldCopy: false);
         _recognizedNumbers[i] = number;
         _numberControllers[i].text = number;
         notifyListeners();
@@ -242,6 +273,10 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
   /// 删除图片
   Future<void> deleteImage(int index) async {
+    // 先删除临时文件
+    await drawingService.deleteTempImage(_selectedImages[index]);
+
+    // 再从列表中移除
     _numberControllers[index].dispose();
     _numberControllers.removeAt(index);
     _selectedImages.removeAt(index);
