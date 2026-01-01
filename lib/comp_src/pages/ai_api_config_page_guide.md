@@ -196,7 +196,7 @@ void _handleTest(AiApiConfigViewModel viewModel) async {
 ### 保存功能
 
 ```dart
-// 第 69-125 行：保存配置处理
+// 第 69-133 行：保存配置处理
 void _handleSave(AiApiConfigViewModel viewModel) async {
   // 1. 更新 ViewModel
   viewModel.updateBaseUrl(_baseUrlController.text);
@@ -208,16 +208,37 @@ void _handleSave(AiApiConfigViewModel viewModel) async {
     // 3. 保存配置（持久化到 SharedPreferences）
     final success = await viewModel.saveConfig();
 
-    // 4. 显示提示
-    ScaffoldMessenger.of(context).showSnackBar(...);
+    // 4. 显示顶部提示（与测试连接样式一致）
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(success ? Icons.check_circle : Icons.error, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(success ? '配置保存成功！' : '保存失败')),
+          ],
+        ),
+        backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: mediaQuery.size.height - topPosition - 60, // 定位到顶部
+        ),
+        duration: Duration(seconds: success ? 3 : 5),
+      ),
+    );
 
-    // 5. 返回上一页
-    if (success) {
-      Navigator.pop(context);
-    }
+    // 注意：保存成功后不返回上一页，用户可继续配置
   }
 }
 ```
+
+**特点**：
+- 保存成功后不返回上一页（用户可继续配置）
+- 提示样式与测试连接完全一致
+- 成功：绿色背景 + "配置保存成功！"
+- 失败：红色背景 + 错误信息
 
 ### 表单验证规则
 

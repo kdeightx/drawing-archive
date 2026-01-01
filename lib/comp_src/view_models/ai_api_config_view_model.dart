@@ -138,14 +138,15 @@ class AiApiConfigViewModel extends ChangeNotifier {
       final Uri uri = Uri.parse('$_baseUrl/chat/completions');
       debugPrint('📍 请求 URL: $uri');
 
-      // 构建请求体
+      // 构建请求体（优化：使用最短消息 + 限制返回 token 数量）
       final Map<String, dynamic> requestBody = {
         'model': _modelName,
         'stream': false,
+        'max_tokens': 10, // 限制返回的 token 数量，减少消耗
         'messages': [
           {
             'role': 'user',
-            'content': 'Hello, this is a test message.',
+            'content': 'Hi', // 使用最简短的测试消息
           }
         ],
       };

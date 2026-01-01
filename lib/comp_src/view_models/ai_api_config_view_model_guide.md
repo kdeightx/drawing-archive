@@ -225,14 +225,15 @@ Future<bool> testConnection() async {
   try {
     final uri = Uri.parse('$_baseUrl/chat/completions');
 
-    // 构建测试请求（简单文本消息）
+    // 构建测试请求（优化：使用最短消息 + 限制返回 token 数量）
     final requestBody = {
       'model': _modelName,
       'stream': false,
+      'max_tokens': 10, // 限制返回的 token 数量，减少消耗
       'messages': [
         {
           'role': 'user',
-          'content': 'Hello, this is a test message.',
+          'content': 'Hi', // 使用最简短的测试消息
         }
       ],
     };
@@ -274,6 +275,12 @@ Future<bool> testConnection() async {
   }
 }
 ```
+
+**Token 消耗优化**：
+- **测试消息**：使用 "Hi"（仅 2 个字符），原来是 "Hello, this is a test message."（28 个字符）
+- **返回限制**：添加 `max_tokens: 10` 参数，限制 AI 最多返回 10 个 token
+- **节省效果**：约 80-90% 的 token 消耗
+- **目的**：测试连接只需验证 API 能否正常响应，不需要长回复
 
 **调试信息**：
 - 请求 URL、请求体、响应状态码、响应体都会通过 `debugPrint` 输出

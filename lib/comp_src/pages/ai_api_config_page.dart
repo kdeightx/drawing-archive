@@ -92,32 +92,40 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
       final success = await viewModel.saveConfig();
 
       if (mounted) {
+        final MediaQueryData mediaQuery = MediaQuery.of(context);
+        final double topPadding = mediaQuery.padding.top;
+        final double appBarHeight = kToolbarHeight;
+        final double topPosition = topPadding + appBarHeight + 8;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 Icon(
-                  success ? Icons.check_circle : Icons.error_outline,
+                  success ? Icons.check_circle : Icons.error,
                   color: Colors.white,
-                  size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(success ? l10n.configSaved : viewModel.errorMessage ?? '保存失败'),
+                Expanded(
+                  child: Text(
+                    success ? '配置保存成功！' : (viewModel.errorMessage ?? '保存失败'),
+                  ),
+                ),
               ],
             ),
             backgroundColor: success
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.error,
+                ? const Color(0xFF10B981)
+                : const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 2),
+            margin: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: mediaQuery.size.height - topPosition - 60,
+            ),
+            duration: Duration(seconds: success ? 3 : 5),
           ),
         );
-
-        if (success) {
-          Navigator.pop(context);
-        }
       }
     } else {
       debugPrint('❌ 表单验证失败');
