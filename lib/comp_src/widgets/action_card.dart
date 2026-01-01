@@ -13,6 +13,7 @@ class NumberItem {
   final int index;          // 显示序号
   String number;            // 编号值
   bool hasAiNumber;         // 是否有AI识别的编号
+  bool recognitionFailed;   // 是否识别失败
 
   NumberItem({
     required this.id,
@@ -20,6 +21,7 @@ class NumberItem {
     required this.index,
     this.number = '',
     this.hasAiNumber = false,
+    this.recognitionFailed = false,
   });
 }
 
@@ -49,6 +51,10 @@ class ActionCard extends StatelessWidget {
   final VoidCallback? onNextPage;
   /// 保存回调
   final VoidCallback onSave;
+  /// 上传识别回调
+  final VoidCallback? onUpload;
+  /// 清空列表回调
+  final VoidCallback? onClearAll;
   /// 是否正在保存
   final bool isSaving;
   /// 是否正在分析
@@ -68,6 +74,8 @@ class ActionCard extends StatelessWidget {
     this.onPreviousPage,
     this.onNextPage,
     required this.onSave,
+    this.onUpload,
+    this.onClearAll,
     this.isSaving = false,
     this.isAnalyzing = false,
   });
@@ -100,6 +108,7 @@ class ActionCard extends StatelessWidget {
                     icon: Icons.camera_alt_outlined,
                     label: '拍照',
                     onTap: onCameraTap,
+                    isEnabled: !isAnalyzing,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -109,6 +118,7 @@ class ActionCard extends StatelessWidget {
                     icon: Icons.photo_library_outlined,
                     label: '相册',
                     onTap: onGalleryTap,
+                    isEnabled: !isAnalyzing,
                   ),
                 ),
               ],
@@ -132,34 +142,52 @@ class ActionCard extends StatelessWidget {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool isEnabled = true,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
-      onTap: onTap,
+      onTap: isEnabled ? onTap : null,
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+      child: Opacity(
+        opacity: isEnabled ? 1.0 : 0.5,
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: isEnabled
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isEnabled
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
+                  : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
+              width: 1,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isEnabled
+                    ? Theme.of(context).colorScheme.primary
+                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isEnabled
+                      ? Theme.of(context).colorScheme.primary
+                      : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -245,33 +273,109 @@ class ActionCard extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // 保存按钮
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: (isAnalyzing || isSaving) ? null : onSave,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              disabledBackgroundColor: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check, size: 18),
-                      SizedBox(width: 8),
-                      Text('保存所有图片'),
-                    ],
+        // 保存和清空按钮
+        Row(
+          children: [
+            // 清空按钮（次要按钮）
+            Expanded(
+              flex: 1,
+              child: SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: (isAnalyzing || isSaving || numberItems.isEmpty) ? null : onClearAll,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626),
+                    side: BorderSide(
+                      color: (isAnalyzing || isSaving || numberItems.isEmpty)
+                          ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
+                          : (isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626)),
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-          ),
+                  child: const Icon(Icons.delete_outline, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 上传识别按钮
+            Expanded(
+              flex: 2,
+              child: SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: (isAnalyzing || isSaving || numberItems.isEmpty || onUpload == null) ? null : onUpload,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isAnalyzing
+                        ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
+                        : Theme.of(context).colorScheme.primary,
+                    side: BorderSide(
+                      color: (isAnalyzing || isSaving || numberItems.isEmpty)
+                          ? (isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0))
+                          : Theme.of(context).colorScheme.primary,
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: isAnalyzing
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.cloud_upload_outlined, size: 18),
+                            SizedBox(width: 6),
+                            Text('上传识别', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 保存按钮（主要操作）
+            Expanded(
+              flex: 2,
+              child: SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: (isAnalyzing || isSaving) ? null : onSave,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    disabledBackgroundColor: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 18),
+                            SizedBox(width: 6),
+                            Text('保存图片', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -327,6 +431,14 @@ class ActionCard extends StatelessWidget {
 
   /// 单个编号输入项
   Widget _buildNumberItem(BuildContext context, NumberItem item, bool isDark, bool isLast) {
+    final viewModel = context.read<DrawingScannerViewModel>();
+
+    // 判断输入框和删除按钮是否应该启用：
+    // 在上传识别流程中（从发送中到已完成）禁用
+    // 其他时候（未点击上传识别、已完成之后）启用
+    final bool isEnabled = !viewModel.isAnalyzing;
+    final bool canDelete = !viewModel.isAnalyzing;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -340,6 +452,19 @@ class ActionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // 删除按钮
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: canDelete ? () => onDeleteTap(item.index) : null, // 上传识别流程中禁用
+            tooltip: '删除',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            color: !canDelete
+                ? (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1))
+                : null,
+          ),
+          const SizedBox(width: 8),
+
           // 图片缩略图
           InkWell(
             onTap: () => _showFullScreenPreview(context, item.index),
@@ -396,8 +521,13 @@ class ActionCard extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: TextEditingController(text: item.number),
+              enabled: isEnabled, // 上传识别流程中禁用
+              onTapOutside: (_) {
+                // 点击输入框外部时取消焦点
+                FocusScope.of(context).unfocus();
+              },
               decoration: InputDecoration(
-                hintText: '输入图纸编号',
+                hintText: item.recognitionFailed ? '识别失败' : '输入图纸编号',
                 hintStyle: TextStyle(
                   fontSize: 14,
                   color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
@@ -420,12 +550,24 @@ class ActionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                 ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                    width: 1,
+                  ),
+                ),
               ),
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                color: isEnabled
+                    ? (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B))
+                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
               ),
-              onChanged: (value) => onNumberChange(item.index),
+              onChanged: (value) {
+                item.number = value;
+                onNumberChange(item.index);
+              },
               onSubmitted: (value) {
                 item.number = value;
               },
@@ -442,15 +584,6 @@ class ActionCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-
-          // 删除按钮
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: () => onDeleteTap(item.index),
-            tooltip: '删除',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
         ],
       ),
     );

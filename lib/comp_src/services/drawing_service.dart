@@ -86,6 +86,9 @@ class DrawingService {
         print('文件夹中共有 ${files.length} 个文件');
       }
 
+      // 清理上次使用时可能残留的临时图片
+      await clearAllTempImages();
+
       return true;
     } catch (e) {
       debugPrint('✗ 初始化存储文件夹失败: $e');
@@ -334,6 +337,19 @@ class DrawingService {
       }
     } catch (e) {
       debugPrint('✗ AI 识别失败: $e');
+
+      // 检查是否是网络相关异常
+      final errorMsg = e.toString();
+      if (errorMsg.contains('SocketException') ||
+          errorMsg.contains('HttpException') ||
+          errorMsg.contains('Network') ||
+          errorMsg.contains('Connection') ||
+          errorMsg.contains('Timeout') ||
+          errorMsg.contains('Failed host lookup') ||
+          e is http.ClientException) {
+        throw Exception('网络连接失败，请检查网络连接或 API 配置');
+      }
+
       rethrow; // 直接抛出异常，不再使用模拟数据
     }
   }
@@ -450,6 +466,10 @@ class DrawingService {
       }
 
       debugPrint('✓ 共清理了 $deletedCount 个临时文件');
+
+      // 显示清理后文件夹中还剩多少个文件
+      final remainingFiles = _aiImagesDirectory!.listSync();
+      debugPrint('✓ 清理后文件夹中共有 ${remainingFiles.length} 个文件');
     } catch (e) {
       debugPrint('清理临时文件失败: $e');
     }

@@ -5,11 +5,12 @@
 图片显示卡片组件 - 支持多图片查看、缩放、滑动切换，包含空状态占位符和页码指示器。
 
 **核心功能**：
-- **图片展示**：固定高度 400px 的卡片容器
+- **图片展示**：弹性高度，自动填充父组件的 Expanded 空间
 - **滑动切换**：PageView 支持左右滑动切换图片
 - **缩放操作**：InteractiveViewer 支持双指缩放（0.5x - 4.0x）
 - **页码指示器**：底部显示当前页码指示点
 - **空状态**：未选择图片时显示占位符（图标 + 提示文字）
+- **自适应布局**：根据屏幕大小自动调整显示区域
 
 **组件类型**：StatefulWidget（自管理控制器）
 
@@ -31,10 +32,11 @@ demo/lib/comp_src/widgets/image_display_card.dart
 
 ### 输出
 
-- 渲染固定高度（400px）的卡片
+- 渲染弹性高度的卡片，填充父组件的 Expanded 空间
 - 空状态时显示占位符（扫描图标 + 提示文字）
 - 有图片时显示可滑动、可缩放的图片查看器
 - 多张图片时显示底部页码指示器
+- 自适应不同屏幕尺寸（小屏自动缩小，大屏自动放大）
 
 ## 依赖项
 
@@ -189,22 +191,23 @@ class _MyPageState extends State<MyPage> {
 
 ```
 ImageDisplayCard (Card)
-└── Container (height: 400)
-    └── ClipRRect
-        ├── if images.isEmpty
-        │   └── _buildPlaceholder
-        │       └── Center
-        │           ├── Container (圆形图标背景)
-        │           │   └── Icon(Icons.document_scanner_outlined)
-        │           ├── Text('点击上传图片')
-        │           └── Text('支持多选图片')
-        └── if images.isNotEmpty
-            └── _buildImageViewer (Stack)
-                ├── PageView.builder
-                │   └── InteractiveViewer
-                │       └── Image.file
-                └── if images.length > 1
-                    └── _buildPageIndicator
+└── SizedBox.expand (弹性填充父组件空间)
+    └── Container
+        └── ClipRRect
+            ├── if images.isEmpty
+            │   └── _buildPlaceholder
+            │       └── Center
+            │           ├── Container (圆形图标背景)
+            │           │   └── Icon(Icons.document_scanner_outlined)
+            │           ├── Text('点击上传图片')
+            │           └── Text('支持多选图片')
+            └── if images.isNotEmpty
+                └── _buildImageViewer (Stack)
+                    ├── PageView.builder
+                    │   └── InteractiveViewer
+                    │       └── Image.file
+                    └── if images.length > 1
+                        └── _buildPageIndicator
                         └── Row
                             └── List.generate (AnimatedContainer * n)
 ```

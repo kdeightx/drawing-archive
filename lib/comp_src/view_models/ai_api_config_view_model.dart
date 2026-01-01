@@ -86,9 +86,10 @@ class AiApiConfigViewModel extends ChangeNotifier {
   /// 保存配置
   Future<bool> saveConfig() async {
     debugPrint('🔧 开始保存配置...');
-    debugPrint('  Base URL: $_baseUrl');
-    debugPrint('  API Key: ${_apiKey.isNotEmpty ? "已填写 (${_apiKey.length} 字符)" : "空"}');
-    debugPrint('  Model Name: $_modelName');
+    debugPrint('  准备保存的值:');
+    debugPrint('    Base URL: $_baseUrl');
+    debugPrint('    API Key: ${_apiKey.isNotEmpty ? "已填写 (${_apiKey.length} 字符)" : "空"}');
+    debugPrint('    Model Name: $_modelName');
 
     if (!isConfigValid) {
       _errorMessage = '请填写所有必填字段';
@@ -99,9 +100,37 @@ class AiApiConfigViewModel extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // 先读取旧值进行对比
+      final oldBaseUrl = prefs.getString(_keyBaseUrl);
+      final oldApiKey = prefs.getString(_keyApiKey);
+      final oldModelName = prefs.getString(_keyModelName);
+
+      debugPrint('  SharedPreferences 中的旧值:');
+      debugPrint('    Base URL: $oldBaseUrl');
+      debugPrint('    API Key: ${oldApiKey?.isNotEmpty == true ? "已填写" : "空"}');
+      debugPrint('    Model Name: $oldModelName');
+
+      // 保存新值
       await prefs.setString(_keyBaseUrl, _baseUrl.trim());
+      debugPrint('  ✅ Base URL 已写入: ${_baseUrl.trim()}');
+
       await prefs.setString(_keyApiKey, _apiKey.trim());
+      debugPrint('  ✅ API Key 已写入: ${_apiKey.trim().isNotEmpty ? "已填写" : "空"}');
+
       await prefs.setString(_keyModelName, _modelName.trim());
+      debugPrint('  ✅ Model Name 已写入: ${_modelName.trim()}');
+
+      // 立即验证是否写入成功
+      final verifyBaseUrl = prefs.getString(_keyBaseUrl);
+      final verifyApiKey = prefs.getString(_keyApiKey);
+      final verifyModelName = prefs.getString(_keyModelName);
+
+      debugPrint('  验证写入结果:');
+      debugPrint('    Base URL: $verifyBaseUrl (${verifyBaseUrl == _baseUrl.trim() ? "✅" : "❌"})');
+      debugPrint('    API Key: ${verifyApiKey?.isNotEmpty == true ? "已填写" : "空"} (${verifyApiKey == _apiKey.trim() ? "✅" : "❌"})');
+      debugPrint('    Model Name: $verifyModelName (${verifyModelName == _modelName.trim() ? "✅" : "❌"})');
+
       _errorMessage = null;
       debugPrint('✅ 配置保存成功');
       notifyListeners();

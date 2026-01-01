@@ -82,9 +82,8 @@ DrawingScannerPage (StatelessWidget)
 
 ### 控制器
 
-| 控制器 | 位置 | 用途 |
-|--------|------|------|
-| `_scrollController` | _DrawingScannerView | 页面滚动控制 |
+**本页面**：
+本页面无控制器（采用弹性布局，不需要滚动控制）
 
 **其他控制器**：
 - `PageController` - 由 ImageDisplayCard 自管理
@@ -208,9 +207,39 @@ class _MainPageState extends State<MainPage> {
 - **ViewModel**：状态管理和业务逻辑
 - **Service**：数据持久化和 API 调用
 
+### 弹性布局设计
+页面采用**自适应弹性布局**，解决小屏幕适配问题：
+
+**布局结构**：
+```dart
+Column(
+  children: [
+    Padding(
+      child: _buildHeader(), // 顶部：进度卡片（固定高度）
+    ),
+    Expanded(
+      child: _buildImageCard(), // 中间：图片卡片（弹性占据剩余空间）
+    ),
+    Padding(
+      child: _buildActionCard(), // 底部：操作卡片（固定在底部）
+    ),
+  ],
+)
+```
+
+**优势**：
+- ✅ 小屏设备（如 iPhone SE）：图片区域自动变小
+- ✅ 大屏设备：图片区域自动变大
+- ✅ 操作按钮永远固定在底部可见
+- ✅ 避免溢出错误（Overflow Error）
+
+**为什么不用滚动**：
+- 操作按钮是最常用的交互，应该始终可见
+- 图片区域可以适当缩小以适应屏幕
+- 用户体验优于需要手动滚动才能看到按钮
+
 ### 组件自治
 - **UI 控制器**：由各自的组件自行管理
-  - ScrollController - 页面级别
   - PageController - ImageDisplayCard 内部
   - TransformationController - ImageDisplayCard 内部
 - **ViewModel 不管理 UI 控制器**：保持架构清晰

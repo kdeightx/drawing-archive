@@ -92,39 +92,12 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
       final success = await viewModel.saveConfig();
 
       if (mounted) {
-        final MediaQueryData mediaQuery = MediaQuery.of(context);
-        final double topPadding = mediaQuery.padding.top;
-        final double appBarHeight = kToolbarHeight;
-        final double topPosition = topPadding + appBarHeight + 8;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  success ? Icons.check_circle : Icons.error,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    success ? '配置保存成功！' : (viewModel.errorMessage ?? '保存失败'),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: success
-                ? const Color(0xFF10B981)
-                : const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: mediaQuery.size.height - topPosition - 60,
-            ),
-            duration: Duration(seconds: success ? 3 : 5),
-          ),
+        _showTopNotification(
+          context,
+          success ? '配置保存成功！' : (viewModel.errorMessage ?? '保存失败'),
+          backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          icon: success ? Icons.check_circle : Icons.error,
+          duration: Duration(seconds: success ? 3 : 5),
         );
       }
     } else {
@@ -151,41 +124,14 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
 
     // 显示测试结果（在屏幕上方）
     if (mounted) {
-      final MediaQueryData mediaQuery = MediaQuery.of(context);
-      final double topPadding = mediaQuery.padding.top;
-      final double appBarHeight = kToolbarHeight;
-      final double topPosition = topPadding + appBarHeight + 8;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                success ? Icons.check_circle : Icons.error,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  success
-                      ? '连接成功！'
-                      : (viewModel.errorMessage ?? '连接失败'),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: success
-              ? const Color(0xFF10B981)
-              : const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: mediaQuery.size.height - topPosition - 60,
-          ),
-          duration: Duration(seconds: success ? 3 : 5),
-        ),
+      _showTopNotification(
+        context,
+        success
+            ? '连接成功！'
+            : (viewModel.errorMessage ?? '连接失败'),
+        backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        icon: success ? Icons.check_circle : Icons.error,
+        duration: Duration(seconds: success ? 3 : 5),
       );
     }
   }
@@ -485,6 +431,152 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
           ),
         ),
       ],
+    );
+  }
+
+  /// 显示顶部通知
+  void _showTopNotification(
+    BuildContext context,
+    String message, {
+    required Color backgroundColor,
+    required IconData icon,
+    required Duration duration,
+  }) {
+    // 使用 Overlay 显示顶部通知（避免与 Scaffold SnackBar 系统冲突）
+    final OverlayState overlay = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        // 计算 AppBar 高度 + 顶部安全区域
+        final MediaQueryData mediaQuery = MediaQuery.of(context);
+        final double topPadding = mediaQuery.padding.top;
+        final double appBarHeight = kToolbarHeight;
+
+        return Positioned(
+          top: topPadding + appBarHeight + 8,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: _TopNotification(
+              message: message,
+              backgroundColor: backgroundColor,
+              icon: icon,
+              onDismiss: () => overlayEntry.remove(),
+            ),
+          ),
+        );
+      },
+    );
+
+    overlay.insert(overlayEntry);
+
+    // 指定时间后自动移除
+    Future.delayed(duration, () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
+  }
+}
+
+/// 顶部通知卡片组件
+class _TopNotification extends StatefulWidget {
+  final String message;
+  final Color backgroundColor;
+  final IconData icon;
+  final VoidCallback onDismiss;
+
+  const _TopNotification({
+    required this.message,
+    required this.backgroundColor,
+    required this.icon,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_TopNotification> createState() => _TopNotificationState();
+}
+
+class _TopNotificationState extends State<_TopNotification>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: null, // 允许多行显示
+                  overflow: TextOverflow.visible, // 不截断文本
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

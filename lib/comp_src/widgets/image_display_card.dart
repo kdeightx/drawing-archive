@@ -70,16 +70,32 @@ class _ImageDisplayCardState extends State<ImageDisplayCard> {
           width: isDark ? 2.0 : 1.5,
         ),
       ),
-      child: Container(
-        height: 400,
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: widget.images.isEmpty ? _buildPlaceholder(context) : _buildImageViewer(context),
-        ),
+      // 使用 LayoutBuilder 根据屏幕大小动态计算高度
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 图片区域高度 = 屏幕可用高度的 45%
+          final screenHeight = MediaQuery.of(context).size.height -
+              MediaQuery.of(context).padding.top -
+              kToolbarHeight -
+              16; // 减去 SafeArea 和 padding
+          final cardHeight = screenHeight * 0.45;
+
+          return SizedBox(
+            height: cardHeight > 200 ? cardHeight : 200, // 最小高度 200px
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: widget.images.isEmpty
+                    ? _buildPlaceholder(context)
+                    : _buildImageViewer(context),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

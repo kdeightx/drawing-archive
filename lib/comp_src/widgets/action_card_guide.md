@@ -2,7 +2,7 @@
 
 ## 组件职责
 
-操作卡片组件 - 包含图片选择（相机/相册）、搜索已归档、编号输入、分页、保存等功能，支持多图片管理和批量操作。
+操作卡片组件 - 包含图片选择（相机/相册）、搜索已归档、编号输入、分页、上传识别、清空列表、保存等功能，支持多图片管理和批量操作。
 
 ## 代码位置
 
@@ -28,6 +28,8 @@ demo/lib/comp_src/widgets/action_card.dart
 | `onPreviousPage` | `VoidCallback?` | 否 | - | 上一页回调（null 则禁用） |
 | `onNextPage` | `VoidCallback?` | 否 | - | 下一页回调（null 则禁用） |
 | `onSave` | `VoidCallback` | 是 | - | 保存回调 |
+| `onUpload` | `VoidCallback?` | 否 | - | 上传识别回调（null 则不显示按钮） |
+| `onClearAll` | `VoidCallback?` | 否 | - | 清空列表回调（null 则不显示按钮） |
 | `isSaving` | `bool` | 否 | false | 是否正在保存 |
 | `isAnalyzing` | `bool` | 否 | false | 是否正在分析 |
 
@@ -40,7 +42,7 @@ demo/lib/comp_src/widgets/action_card.dart
     - 标题行（图标 + 文字 + 页码 + 数量）
     - 编号列表（图片缩略图 + 序号 + 输入框 + AI标识 + 删除按钮）
     - 分页按钮（超过5张时）
-    - 保存按钮
+    - 操作按钮行（清空 + 上传识别 + 保存）
 - **点击缩略图**：打开 FullScreenImageViewer 全屏预览，支持手势缩放、旋转、滑动切换
 
 ## 依赖项
@@ -64,6 +66,7 @@ class NumberItem {
   final int index;          // 显示序号
   String number;            // 编号值（可变）
   bool hasAiNumber;         // 是否有AI识别的编号（可变）
+  bool recognitionFailed;   // 是否识别失败
 }
 ```
 
@@ -102,6 +105,7 @@ class _MyPageState extends State<MyPage> {
         index: index,
         number: _controllers[index].text,
         hasAiNumber: _recognizedNumbers[index].isNotEmpty,
+        recognitionFailed: _recognitionFailedList[index],
       );
     });
   }
@@ -130,6 +134,8 @@ class _MyPageState extends State<MyPage> {
       },
       onPreviousPage: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
       onNextPage: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+      onUpload: viewModel.isAnalyzing ? null : _handleUpload,
+      onClearAll: _handleClearAll,
       onSave: _handleSave,
       isSaving: _isSaving,
       isAnalyzing: _isAnalyzing,
@@ -177,23 +183,23 @@ ActionCard(
 
 | 方法 | 行号 | 说明 |
 |------|------|------|
-| `_buildActionButton` | 131-166 | 操作按钮（相机/相册） |
-| `_buildSearchButton` | 169-201 | 搜索按钮（渐变样式） |
-| `_buildNumberSection` | 204-278 | 编号区域容器 |
-| `_buildNumberHeader` | 281-326 | 编号区域标题行 |
-| `_buildNumberItem` | 329-457 | 单个编号输入项（含可点击的缩略图） |
-| `_buildPaginationButtons` | 460-522 | 分页按钮（带禁用状态样式） |
-| `_showFullScreenPreview` | 525-538 | 显示全屏预览（导航到 FullScreenImageViewer）|
+| `_buildActionButton` | 141-196 | 操作按钮（相机/相册） |
+| `_buildSearchButton` | 197-230 | 搜索按钮（渐变样式） |
+| `_buildNumberSection` | 232-383 | 编号区域容器 |
+| `_buildNumberHeader` | 385-431 | 编号区域标题行 |
+| `_buildNumberItem` | 433-591 | 单个编号输入项（含可点击的缩略图） |
+| `_buildPaginationButtons` | 593-656 | 分页按钮（带禁用状态样式） |
+| `_showFullScreenPreview` | 658-669 | 显示全屏预览（导航到 FullScreenImageViewer） |
 
 ## 修改注意事项
 
-1. **全屏预览功能**（第 344-374 行）：
+1. **全屏预览功能**（第 470-472 行）：
    - 点击缩略图会打开 FullScreenImageViewer
    - 通过 Provider 获取 DrawingScannerViewModel，自动设置当前图片索引和重置旋转
    - 全屏预览组件支持手势缩放、旋转、滑动切换、沉浸式交互
    - 必须确保 DrawingScannerViewModel 已在组件树中提供
 
-2. **NumberItem 数据同步**：`number` 和 `hasAiNumber` 是可变字段，需要在外部维护同步
+2. **NumberItem 数据同步**：`number`、`hasAiNumber` 和 `recognitionFailed` 是可变字段，需要在外部维护同步
 
 3. **编号输入处理**：`onNumberChange` 回调参数是项的索引（不是数组索引），需要通过 `item.index` 获取实际索引
 
@@ -201,25 +207,67 @@ ActionCard(
 
 5. **分页按钮状态**：`onPreviousPage` 和 `onNextPage` 为 `null` 时按钮自动禁用
 
-6. **保存按钮状态**：当 `isAnalyzing` 或 `isSaving` 为 `true` 时保存按钮禁用
+6. **保存和上传按钮状态**：当 `isAnalyzing` 或 `isSaving` 为 `true` 时保存和上传按钮禁用
 
 7. **图片缩略图**：使用 48x48 固定尺寸，`BoxFit.cover` 裁剪，**可点击打开全屏预览**
 
 8. **AI 识别标识**：仅当 `NumberItem.hasAiNumber` 为 `true` 时显示星星图标
 
-9. **边框增强样式**（第80-88行）：
+9. **边框增强样式**（第 90-96 行）：
    - Card 组件增加了 `side` 边框属性
    - 深色模式：边框颜色 `#94A3B8`，宽度 2.0
    - 浅色模式：边框颜色 `#CBD5E1`，宽度 1.5
 
-10. **分页按钮禁用样式**（第469-491行）：
+10. **分页按钮禁用样式**（第 607-629 行）：
     - 禁用状态边框颜色：深色 `#334155`，浅色 `#E2E8F0`
     - 禁用状态文字颜色：深色 `#475569`，浅色 `#94A3B8`
     - 启用状态边框颜色：主题色带 30% 透明度
     - 启用状态文字颜色：主题色
 
-11. **保存按钮禁用样式**（第254行）：
+11. **保存按钮禁用样式**（第 354-355 行）：
     - 禁用背景颜色：深色 `#475569`，浅色 `#E2E8F0`
+
+12. **操作按钮布局**（第 277-377 行）：
+    - 三个按钮使用 Flex 布局，比例为 1:2:2
+    - 清空按钮：OutlinedButton，红色（深色 #EF4444，浅色 #DC2626），icon-only，flex 1
+    - 上传识别按钮：OutlinedButton，主题色，flex 2
+    - 保存按钮：ElevatedButton，主题色，flex 2
+    - 按钮间距：8px
+    - 图标大小：18px
+    - 文字大小：14px
+    - 使用 `tapTargetSize: MaterialTapTargetSize.shrinkWrap` 优化小屏幕布局
+
+13. **主题适配**（第 312、316、354 行）：
+    - 上传识别按钮和保存按钮使用 `Theme.of(context).colorScheme.primary` 适配主题
+    - 不再使用硬编码颜色（如 #F59E0B 橙色）
+    - 自动适配深色/浅色主题切换
+
+14. **AlwaysStoppedAnimation 修复**（第 328-330 行）：
+    - CircularProgressIndicator 的 valueColor 使用正确语法
+    - 直接传入颜色值，而非使用 `color:` 命名参数
+    - 正确写法：`AlwaysStoppedAnimation<Color>(colorValue)`
+
+15. **输入框焦点管理**（第 525-528 行）：
+    - 使用 TextField 的 `onTapOutside` 属性处理外部点击
+    - 点击输入框外部时自动取消焦点（Flutter 3.13+ 特性）
+    - 替代了外层 GestureDetector 方案（TextField 会消费 tap 事件）
+
+16. **识别失败状态显示**（第 517 行）：
+    - 输入框 hint 文本根据 `item.recognitionFailed` 动态显示
+    - 识别失败：显示 "识别失败"
+    - 正常状态：显示 "输入图纸编号"
+
+17. **上传识别按钮禁用逻辑**（第 308 行）：
+    - 当 `isAnalyzing` 为 true 时禁用（全局识别状态）
+    - 当 `isSaving` 为 true 时禁用
+    - 当 `numberItems` 为空时禁用
+    - 当 `onUpload` 为 null 时不显示该按钮
+
+18. **清空按钮禁用逻辑**（第 285 行）：
+    - 当 `isAnalyzing` 为 true 时禁用
+    - 当 `isSaving` 为 true 时禁用
+    - 当 `numberItems` 为空时禁用
+    - 当 `onClearAll` 为 null 时不显示该按钮
 
 ## 相关文件
 

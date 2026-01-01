@@ -258,6 +258,7 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
         index: index,
         number: viewModel.numberControllers[index].text,
         hasAiNumber: viewModel.recognizedNumbers[index].isNotEmpty,
+        recognitionFailed: viewModel.recognitionFailedList[index], // 使用识别失败状态
       );
     });
 
@@ -267,7 +268,12 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
         try {
           await viewModel.pickMultipleImages();
         } catch (e) {
-          _showSnackBar(context, '${l10n.pickImageFailed}: $e', isError: true);
+          if (!context.mounted) return;
+          _showSnackBar(
+            context,
+            '${l10n.pickImageFailed}: $e',
+            isError: true,
+          );
         }
       },
       onSearchTap: () {
@@ -284,7 +290,13 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
       itemsPerPage: viewModel.numbersPerPage,
       onNumberChange: (index) {
         // 编号变化时更新控制器
-        viewModel.numberControllers[index].text = numberItems[index].number;
+        final newValue = numberItems[index].number;
+        final controller = viewModel.numberControllers[index];
+
+        // 只有当值真的不同时才更新，避免光标跳动等问题
+        if (controller.text != newValue) {
+          controller.text = newValue;
+        }
       },
       onDeleteTap: (index) async {
         await viewModel.deleteImage(index);
@@ -295,8 +307,34 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
       onNextPage: viewModel.numberPage < viewModel.totalPages - 1
           ? () => viewModel.nextPage()
           : null,
+      onUpload: () async {
+        try {
+          await viewModel.uploadAndRecognizeAll();
+        } catch (e) {
+          if (!context.mounted) return;
+
+          // 检查是否是 AI API 连接失败
+          String errorMsg = '$e';
+          if (errorMsg.contains('AI API 连接失败')) {
+            _showSnackBar(
+              context,
+              '${l10n.pickImageFailed}: $errorMsg\n\n💡 您可以手动编辑编号并保存图片',
+              isError: true,
+              duration: const Duration(seconds: 5),
+            );
+          } else {
+            _showSnackBar(context, '上传识别失败: $e', isError: true);
+          }
+        }
+      },
       onSave: () async {
         try {
+          // [修复核心] 强制移除焦点，确保输入框中的内容同步到 Controller
+          FocusScope.of(context).unfocus();
+
+          // 等待一小段时间让事件循环处理文本更新
+          await Future.delayed(const Duration(milliseconds: 50));
+
           final count = await viewModel.saveAllImages();
           if (!context.mounted) return;
 
@@ -311,13 +349,142 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
           _showSnackBar(context, '${l10n.saveFailed}: $e', isError: true);
         }
       },
+      onClearAll: () async {
+        // 显示确认对话框
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Card(
+                margin: EdgeInsets.zero,
+                elevation: isDark ? 2 : 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+                    width: isDark ? 2.0 : 1.5,
+                  ),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 图标
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Color(0xFFEF4444),
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 标题
+                      const Text(
+                        '确认清空列表',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 按钮组
+                      Row(
+                        children: [
+                          // 确认清空按钮
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEF4444),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 18),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      '确认清空',
+                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // 取消按钮
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  side: BorderSide(
+                                    color: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text(
+                                  '取消',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+
+        // 用户点击了"确认清空"
+        if (confirmed == true) {
+          try {
+            await viewModel.clearAllImages();
+          } catch (e) {
+            if (!context.mounted) return;
+            _showSnackBar(context, '清空失败: $e', isError: true);
+          }
+        }
+      },
       isSaving: viewModel.isSaving,
       isAnalyzing: viewModel.isAnalyzing,
     );
   }
 
-  /// 显示 SnackBar
-  void _showSnackBar(BuildContext context, String message, {required bool isError, bool isSuccess = false}) {
+  /// 显示顶部通知
+  void _showSnackBar(BuildContext context, String message, {
+    required bool isError,
+    bool isSuccess = false,
+    Duration duration = const Duration(seconds: 2),
+  }) {
     // 根据类型确定颜色和图标
     Color backgroundColor;
     IconData icon;
@@ -333,31 +500,140 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
       icon = Icons.check_circle;
     }
 
-    // 计算 AppBar 高度 + 顶部安全区域 + 间距
-    final MediaQueryData mediaQuery = MediaQuery.of(context);
-    final double topPadding = mediaQuery.padding.top;
-    final double appBarHeight = kToolbarHeight;
-    final double topPosition = topPadding + appBarHeight + 8;
+    // 使用 Overlay 显示顶部通知（避免与 Scaffold SnackBar 系统冲突）
+    final OverlayState overlay = Overlay.of(context);
+    late OverlayEntry overlayEntry;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        // 通过设置大的 bottom margin 将 SnackBar 推到顶部
-        margin: EdgeInsets.only(
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        // 计算 AppBar 高度 + 顶部安全区域
+        final MediaQueryData mediaQuery = MediaQuery.of(context);
+        final double topPadding = mediaQuery.padding.top;
+        final double appBarHeight = kToolbarHeight;
+
+        return Positioned(
+          top: topPadding + appBarHeight + 8,
           left: 16,
           right: 16,
-          bottom: mediaQuery.size.height - topPosition - 60,
+          child: Material(
+            color: Colors.transparent,
+            child: _TopNotification(
+              message: message,
+              backgroundColor: backgroundColor,
+              icon: icon,
+              onDismiss: () => overlayEntry.remove(),
+            ),
+          ),
+        );
+      },
+    );
+
+    overlay.insert(overlayEntry);
+
+    // 指定时间后自动移除
+    Future.delayed(duration, () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
+  }
+}
+
+/// 顶部通知卡片组件
+class _TopNotification extends StatefulWidget {
+  final String message;
+  final Color backgroundColor;
+  final IconData icon;
+  final VoidCallback onDismiss;
+
+  const _TopNotification({
+    required this.message,
+    required this.backgroundColor,
+    required this.icon,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_TopNotification> createState() => _TopNotificationState();
+}
+
+class _TopNotificationState extends State<_TopNotification>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: null, // 允许多行显示
+                  overflow: TextOverflow.visible, // 不截断文本
+                ),
+              ),
+            ],
+          ),
         ),
-        duration: const Duration(seconds: 2),
       ),
     );
   }

@@ -4,13 +4,12 @@
 
 `DrawingScannerViewModel` 是图纸扫描页面的状态管理和业务逻辑层，使用 Provider 模式管理页面的所有状态：
 
-- **图片管理**：支持单张/多张图片选择、删除、切换
-- **AI 识别**：自动调用 AI 服务识别图纸编号
+- **图片管理**：支持单张/多张图片选择、删除、切换、清空
+- **AI 识别**：支持单张/批量识别，可重复上传未识别的图片
 - **进度管理**：展示识别进度（发送数据、扫描中、完成）
-- **编号管理**：管理编号输入、分页显示、AI 识别结果
+- **编号管理**：管理编号输入、分页显示、AI 识别结果、识别失败状态
 - **旋转控制**：支持图片 90 度旋转（顺时针/逆时针）
-- **缩放控制**：管理图片缩放和平移状态
-- **数据持久化**：保存识别结果到本地存储
+- **数据持久化**：保存已识别的图片到本地存储
 - **生命周期管理**：自动清理资源，防止内存泄漏
 
 ---
@@ -39,24 +38,30 @@ lib/comp_src/view_models/drawing_scanner_view_model.dart
 | `currentImageIndex` | `int` | 当前查看的图片索引 |
 | `recognizedNumbers` | `List<String>` | AI 识别的编号列表 |
 | `numberControllers` | `List<TextEditingController>` | 编号输入控制器列表 |
+| `recognitionFailedList` | `List<bool>` | 每张图片的识别失败状态 |
 | `numberPage` | `int` | 编号列表当前页码 |
 | `totalPages` | `int` | 编号列表总页数（计算属性）|
+| `numbersPerPage` | `int` | 每页显示的编号数量（固定为 5）|
 | `isAnalyzing` | `bool` | 是否正在分析（AI 识别中）|
+| `analyzingIndex` | `int` | 当前正在识别的图片索引（-1 表示没有正在识别的图片）|
 | `isSaving` | `bool` | 是否正在保存 |
 | `progressState` | `ProgressState?` | 当前进度状态（sending/scanning/completed）|
+| `aiRecognitionFailed` | `bool` | AI 识别是否失败（网络或 API 错误）|
 | `currentRotation` | `int` | 当前旋转角度（0/90/180/270）|
-| `pickImage()` | `Future<void>` | 选择单张图片（相机）|
-| `pickMultipleImages()` | `Future<bool>` | 选择多张图片（相册）|
-| `analyzeImage()` | `Future<void>` | 分析单张图片 |
-| `analyzeAllImages()` | `Future<void>` | 批量分析所有图片 |
-| `saveAllImages()` | `Future<int>` | 保存所有图片 |
+| `pickImage()` | `Future<void>` | 选择单张图片（相机），不自动触发识别 |
+| `pickMultipleImages()` | `Future<bool>` | 选择多张图片（相册），不自动触发识别 |
+| `uploadAndRecognizeAll()` | `Future<void>` | 上传并识别所有未识别的图片 |
+| `analyzeImage()` | `Future<void>` | 分析单张图片（当前图片）|
+| `analyzeAllImages()` | `Future<void>` | 批量分析所有图片（包括已识别的）|
+| `saveAllImages()` | `Future<int>` | 保存所有有编号的图片 |
 | `deleteImage()` | `Future<void>` | 删除指定图片 |
 | `updateNumber()` | `void` | 更新图片编号 |
 | `setCurrentImageIndex()` | `void` | 切换当前图片 |
 | `previousPage()` / `nextPage()` | `void` | 编号列表翻页 |
 | `rotateClockwise()` / `rotateCounterClockwise()` | `void` | 旋转图片 90 度 |
-| `resetRotation()` | `void` | 重置旋转和缩放 |
+| `resetRotation()` | `void` | 重置旋转角度 |
 | `reset()` | `Future<void>` | 重置页面所有状态 |
+| `clearAllImages()` | `Future<void>` | 清空所有图片（删除临时文件并重置页面）|
 
 ---
 
@@ -104,20 +109,14 @@ enum ProgressState {
 | `_currentImageIndex` | `int` | 当前查看/编辑的图片索引 |
 | `_recognizedNumbers` | `List<String>` | AI 识别的编号列表（与图片一一对应）|
 | `_numberControllers` | `List<TextEditingController>` | 编号输入框控制器（支持手动编辑）|
+| `_recognitionFailedList` | `List<bool>` | 每张图片的识别失败状态（与图片一一对应）|
 | `_numberPage` | `int` | 编号列表当前页码（每页 5 项）|
 | `_isAnalyzing` | `bool` | 是否正在分析（AI 识别中）|
+| `_analyzingIndex` | `int` | 当前正在识别的图片索引（-1 表示无）|
 | `_isSaving` | `bool` | 是否正在保存到数据库 |
 | `_progressState` | `ProgressState?` | 进度状态（控制进度指示器显示）|
+| `_aiRecognitionFailed` | `bool` | AI 识别是否失败（网络或 API 错误）|
 | `_currentRotation` | `int` | 当前旋转角度（0/90/180/270）|
-
-### 控制器
-
-| 控制器 | 用途 |
-|--------|------|
-| `transformationController` | `TransformationController` - 控制图片缩放和平移（4x4 矩阵）|
-| `pageController` | `PageController` - 控制全屏预览时图片左右滑动切换 |
-| `scrollController` | `ScrollController` - 控制主页面滚动 |
-| `actionCardKey` | `GlobalKey` - 操作区域的 GlobalKey，用于删除后滚动到视野内 |
 
 ---
 
@@ -149,7 +148,7 @@ class _DrawingScannerContent extends StatelessWidget {
           if (viewModel.isAnalyzing)
             _buildProgressIndicator(viewModel.progressState),
           ActionCard(
-            onCameraTap: viewModel.pickImage,
+            onCameraTap: () => viewModel.pickImage(),
             onGalleryTap: () async {
               await viewModel.pickMultipleImages();
             },
@@ -160,6 +159,8 @@ class _DrawingScannerContent extends StatelessWidget {
             onDeleteTap: (index) => viewModel.deleteImage(index),
             onPreviousPage: viewModel.numberPage > 0 ? viewModel.previousPage : null,
             onNextPage: viewModel.numberPage < viewModel.totalPages - 1 ? viewModel.nextPage : null,
+            onUpload: viewModel.uploadAndRecognizeAll,
+            onClearAll: viewModel.clearAllImages,
             onSave: viewModel.saveAllImages,
             isSaving: viewModel.isSaving,
             isAnalyzing: viewModel.isAnalyzing,
@@ -171,73 +172,64 @@ class _DrawingScannerContent extends StatelessWidget {
 }
 ```
 
-### 示例2：使用 ViewModel 控制全屏预览
+### 示例2：上传识别流程
 
 ```dart
-// FullScreenImageViewer 使用 ViewModel 管理图片和旋转状态
-class FullScreenImageViewer extends StatefulWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Consumer<DrawingScannerViewModel>(
-        builder: (context, viewModel, child) {
-          return Stack(
-            children: [
-              // 显示当前图片
-              Image.file(viewModel.selectedImages[viewModel.currentImageIndex]),
-              // 顶部操作栏
-              _buildTopAppBar(
-                currentIndex: viewModel.currentImageIndex,
-                totalCount: viewModel.selectedImages.length,
-                onRotateLeft: viewModel.rotateCounterClockwise,
-                onRotateRight: viewModel.rotateClockwise,
-              ),
-            ],
-          );
-        },
-      ),
-    );
+// 选择图片后手动触发识别
+Future<void> _handleUpload() async {
+  try {
+    // 识别所有未识别的图片
+    await viewModel.uploadAndRecognizeAll();
+    print('识别完成');
+  } catch (e) {
+    print('识别失败：$e');
   }
 }
 
-// 切换图片时调用
-void _onPageChanged(int index) {
-  viewModel.setCurrentImageIndex(index); // 重置旋转和缩放
-  viewModel.resetRotation();
-}
+// uploadAndRecognizeAll() 的行为：
+// 1. 找出所有还没有识别结果的图片（recognizedNumbers[index].isEmpty）
+// 2. 如果所有图片都已识别，直接返回（不重复识别）
+// 3. 逐个识别未识别的图片，每张图片单独处理异常
+// 4. 显示进度：发送数据 → AI扫描中 → 完成
+// 5. 如果全部失败，抛出异常提示用户
 ```
 
-### 示例3：监听进度状态显示 UI
+### 示例3：识别失败状态处理
 
 ```dart
-Widget _buildProgressIndicator(ProgressState? state) {
-  if (state == null) return const SizedBox.shrink();
+// 构建编号项列表时传递识别失败状态
+List<NumberItem> _buildNumberItems(DrawingScannerViewModel viewModel) {
+  return List.generate(viewModel.selectedImages.length, (index) {
+    return NumberItem(
+      id: 'img_$index',
+      image: viewModel.selectedImages[index],
+      index: index,
+      number: viewModel.recognizedNumbers[index],
+      hasAiNumber: viewModel.recognizedNumbers[index].isNotEmpty,
+      recognitionFailed: viewModel.recognitionFailedList[index],
+    );
+  });
+}
 
-  String message;
-  IconData icon;
+// ActionCard 会根据 recognitionFailed 显示不同的提示文字：
+// - recognitionFailed = true: 显示 "识别失败"
+// - recognitionFailed = false: 显示 "输入图纸编号"
+```
 
-  switch (state) {
-    case ProgressState.sending:
-      message = '正在发送数据...';
-      icon = Icons.cloud_upload;
-      break;
-    case ProgressState.scanning:
-      message = 'AI 正在识别...';
-      icon = Icons.psychology;
-      break;
-    case ProgressState.completed:
-      message = '识别完成！';
-      icon = Icons.check_circle;
-      break;
+### 示例4：保存已识别的图片
+
+```dart
+// saveAllImages() 只保存有编号的图片
+try {
+  final count = await viewModel.saveAllImages();
+  print('成功保存 $count 张已识别的图片');
+  // 保存成功后自动清理临时图片并重置页面
+} catch (e) {
+  if (e.toString().contains('没有已识别的图片')) {
+    print('请先进行识别或手动填写编号');
+  } else {
+    print('保存失败：$e');
   }
-
-  return SmartProcessStepper(
-    currentStep: state == ProgressState.sending ? 0 : 1,
-    steps: [
-      Step(title: Text('发送数据'), icon: Icon(Icons.cloud_upload)),
-      Step(title: Text('AI 识别'), icon: Icon(Icons.psychology)),
-    ],
-  );
 }
 ```
 
@@ -250,26 +242,32 @@ Widget _buildProgressIndicator(ProgressState? state) {
 ```dart
 // 1. 单张图片（相机）
 await viewModel.pickImage();
-// → 自动触发 AI 识别
+// → 不会自动触发识别，需要手动调用 uploadAndRecognizeAll()
 
 // 2. 多张图片（相册）
 final success = await viewModel.pickMultipleImages();
-// → 自动批量识别所有图片
 if (success) {
   print('选择了 ${viewModel.selectedImages.length} 张图片');
+  // 不会自动触发识别，需要手动调用 uploadAndRecognizeAll()
 }
 ```
 
 ### AI 识别流程
 
 ```dart
-// 单张图片识别
-await viewModel.analyzeImage();
-// 进度变化：sending → scanning → completed → null
+// 方式 1：上传识别所有未识别的图片（推荐）
+await viewModel.uploadAndRecognizeAll();
+// - 只识别未识别的图片
+// - 跳过已识别的图片
+// - 每张图片独立处理异常，失败继续下一张
 
-// 批量识别（相册多选时自动调用）
+// 方式 2：识别当前图片
+await viewModel.analyzeImage();
+// - 识别 _currentImageIndex 对应的图片
+
+// 方式 3：批量识别所有图片（包括已识别的）
 await viewModel.analyzeAllImages();
-// 依次识别每张图片，每张识别完成后更新 UI
+// - 重新识别所有图片（不推荐）
 ```
 
 ### 保存流程
@@ -282,6 +280,12 @@ try {
 } catch (e) {
   print('保存失败：$e');
 }
+
+// saveAllImages() 的行为：
+// 1. 找出所有有编号的图片（_numberControllers[index].text.trim().isNotEmpty）
+// 2. 只保存有编号的图片（跳过未识别且未手动填写的）
+// 3. 如果没有有编号的图片，抛出异常
+// 4. 保存成功后清理所有临时图片并重置页面
 ```
 
 ### 旋转控制
@@ -295,34 +299,93 @@ viewModel.rotateClockwise();
 viewModel.rotateCounterClockwise();
 // 0 → 270 → 180 → 90 → 0
 
-// 重置旋转和缩放
+// 重置旋转
 viewModel.resetRotation();
-// currentRotation = 0, transformationController = identity
+// currentRotation = 0
 ```
 
 ---
 
 ## 修改注意事项
 
+### 识别失败处理机制
+
+```dart
+// 第 193-227 行：逐个识别，每张图片独立处理异常
+for (int index in pendingIndexes) {
+  _analyzingIndex = index;  // 标记正在识别的图片
+  notifyListeners();
+
+  try {
+    final String number = await drawingService.analyzeImage(_selectedImages[index], shouldCopy: false);
+    _recognizedNumbers[index] = number;
+    _numberControllers[index].text = number;
+    _recognitionFailedList[index] = false;  // 识别成功
+    successCount++;
+  } catch (e) {
+    failureCount++;
+    _recognitionFailedList[index] = true;  // 标记识别失败
+    // 继续识别下一张图片，不中断流程
+    continue;
+  }
+
+  notifyListeners();
+}
+```
+
+**关键点**：
+- try-catch 在循环内部，每张图片独立处理
+- 识别失败时设置 `_recognitionFailedList[index] = true`
+- 使用 `continue` 继续下一张，不中断整个流程
+- 如果全部失败，在循环结束后抛出异常
+
+### 保存逻辑变化
+
+```dart
+// 第 439-449 行：只保存有编号的图片
+final List<int> validIndexes = [];
+for (int i = 0; i < _selectedImages.length; i++) {
+  if (_numberControllers[i].text.trim().isNotEmpty) {
+    validIndexes.add(i);
+  }
+}
+
+if (validIndexes.isEmpty) {
+  throw Exception('没有已识别的图片可保存，请先进行识别或手动填写编号');
+}
+
+// 只保存有编号的图片
+for (int index in validIndexes) {
+  final number = _numberControllers[index].text.trim();
+  await drawingService.saveEntry(_selectedImages[index], number);
+  successCount++;
+}
+```
+
+**关键点**：
+- 跳过未识别且未手动填写的图片
+- 允许用户手动填写编号后保存
+- 如果没有任何图片有编号，抛出异常提示用户
+
 ### 分页计算逻辑
 
 ```dart
-// 第 48 行：总页数计算
+// 第 52 行：总页数计算
 int get totalPages => (_selectedImages.length / numbersPerPage).ceil();
 
-// 每页显示 5 项（第 45 行）
+// 每页显示 5 项（第 49 行）
 int get numbersPerPage => 5;
 
-// 当前页码范围检查（第 291-304 行）
+// 当前页码范围检查
 void previousPage() {
-  if (_numberPage > 0) {  // 确保不小于 0
+  if (_numberPage > 0) {
     _numberPage--;
     notifyListeners();
   }
 }
 
 void nextPage() {
-  if (_numberPage < totalPages - 1) {  // 确保不超出最大页
+  if (_numberPage < totalPages - 1) {
     _numberPage++;
     notifyListeners();
   }
@@ -332,12 +395,17 @@ void nextPage() {
 ### 图片删除时的页码调整
 
 ```dart
-// 第 260-275 行：删除图片时自动调整页码
+// 第 488-508 行：删除图片时自动调整页码和索引
 Future<void> deleteImage(int index) async {
-  _numberControllers[index].dispose();  // 先释放控制器
+  // 先删除临时文件
+  await drawingService.deleteTempImage(_selectedImages[index]);
+
+  // 再从列表中移除
+  _numberControllers[index].dispose();
   _numberControllers.removeAt(index);
   _selectedImages.removeAt(index);
   _recognizedNumbers.removeAt(index);
+  _recognitionFailedList.removeAt(index);
 
   // 调整当前图片索引
   if (_currentImageIndex >= _selectedImages.length) {
@@ -356,53 +424,50 @@ Future<void> deleteImage(int index) async {
 ### AI 识别的进度管理
 
 ```dart
-// 第 143-179 行：分析单张图片
-Future<void> analyzeImage() async {
-  // 1. 设置进度为"发送数据"
-  _progressState = ProgressState.sending;
-  notifyListeners();
-  await Future.delayed(const Duration(milliseconds: 500));  // 模拟延迟
+// 第 176-241 行：上传识别流程的进度管理
+_isAnalyzing = true;
+notifyListeners();
 
-  // 2. 设置进度为"扫描中"
-  _progressState = ProgressState.scanning;
-  notifyListeners();
+// 显示进度：发送数据
+_progressState = ProgressState.sending;
+notifyListeners();
+await Future.delayed(const Duration(milliseconds: 500));
 
-  // 3. 调用 AI 服务
-  final String number = await drawingService.analyzeImage(currentImage);
+// 显示进度：AI扫描中
+_progressState = ProgressState.scanning;
+notifyListeners();
 
-  // 4. 设置进度为"完成"
-  _progressState = ProgressState.completed;
-  _recognizedNumbers[_currentImageIndex] = number;
-  _numberControllers[_currentImageIndex].text = number;
-  notifyListeners();
+// 逐个识别...
 
-  // 5. 延迟 3 秒后隐藏进度
-  await Future.delayed(const Duration(seconds: 3));
-  _progressState = null;
-  _isAnalyzing = false;
-  notifyListeners();
-}
+// 显示进度：完成
+_progressState = ProgressState.completed;
+_analyzingIndex = -1;  // 清除正在识别的标记
+notifyListeners();
+
+// 3秒后恢复到非活跃状态
+await Future.delayed(const Duration(seconds: 3));
+_progressState = null;
+_isAnalyzing = false;
+_aiRecognitionFailed = hasApiError;  // 如果有API错误，标记失败
+notifyListeners();
 ```
 
 **注意事项**：
 - 必须在每次状态变化后调用 `notifyListeners()`
 - 进度状态会在完成后自动清除（3 秒延迟）
-- 识别结果会同时更新 `_recognizedNumbers` 和 `_numberControllers[index].text`
+- `_analyzingIndex` 用于 UI 显示当前正在识别的图片
+- `_aiRecognitionFailed` 用于标记是否有 API 错误
 
 ### 资源释放管理
 
 ```dart
-// 第 346-357 行：dispose 方法
+// 第 602-609 行：dispose 方法
 @override
 void dispose() {
   // 清理所有编号输入控制器
   for (var controller in _numberControllers) {
     controller.dispose();
   }
-  // 清理其他控制器
-  transformationController.dispose();
-  pageController.dispose();
-  scrollController.dispose();
   super.dispose();
 }
 ```
@@ -415,38 +480,18 @@ void dispose() {
 ### 旋转状态重置时机
 
 ```dart
-// 第 283-288 行：切换图片时重置旋转
-void setCurrentImageIndex(int index) {
-  _currentImageIndex = index;
-  transformationController.value = Matrix4.identity();  // 重置缩放和平移
+// 第 552-557 行：重置旋转角度
+void resetRotation() {
+  _currentRotation = 0;
   notifyListeners();
 }
 ```
 
 **重置时机**：
-- 切换图片时
 - 页面重置时（`reset()` 方法）
 - 全屏预览关闭时
 
-### 保存前的验证
-
-```dart
-// 第 220-230 行：保存前检查所有编号
-if (_selectedImages.isEmpty) {
-  throw Exception('请先选择图片');
-}
-
-// 检查所有编号是否都已填写
-for (int i = 0; i < _numberControllers.length; i++) {
-  if (_numberControllers[i].text.trim().isEmpty) {
-    throw Exception('请填写第 ${i + 1} 张图片的编号');
-  }
-}
-```
-
-**验证规则**：
-- 必须至少选择一张图片
-- 所有图片的编号都不能为空（trim() 后判断）
+**注意**：不再重置 transformationController，因为已移除缩放功能
 
 ---
 
@@ -458,4 +503,3 @@ for (int i = 0; i < _numberControllers.length; i++) {
 | `lib/comp_src/pages/drawing_scanner_page.dart` | 使用 ViewModel 的主页面 |
 | `lib/comp_src/widgets/action_card.dart` | 操作卡片组件，调用 ViewModel 的各种方法 |
 | `lib/comp_src/widgets/full_screen_image_viewer.dart` | 全屏预览组件，使用 ViewModel 的图片和旋转状态 |
-| `lib/comp_src/widgets/image_display_card.dart` | 图片展示卡片，显示进度状态 |
