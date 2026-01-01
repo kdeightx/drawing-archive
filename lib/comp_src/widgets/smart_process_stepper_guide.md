@@ -6,7 +6,9 @@
 
 ## 代码位置
 
-`lib/widgets/smart_process_stepper.dart`
+```
+demo/lib/comp_src/widgets/smart_process_stepper.dart
+```
 
 ## 输入与输出
 
@@ -144,6 +146,12 @@ class _MyPageState extends State<MyPage> with TickerProviderStateMixin {
 
 ## 相关文件
 
-- `lib/pages/drawing_scanner_page.dart` - 使用该组件的主页面
-- `lib/widgets/image_display_card.dart` - 图片显示卡片组件
-- `lib/widgets/action_card.dart` - 操作卡片组件
+- ```
+demo/lib/comp_src/widgets/smart_process_stepper.dart
+``` - 使用该组件的主页面
+- ```
+demo/lib/comp_src/widgets/smart_process_stepper.dart
+``` - 图片显示卡片组件
+- ```
+demo/lib/comp_src/widgets/smart_process_stepper.dart
+``` - 操作卡片组件

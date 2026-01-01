@@ -6,7 +6,9 @@
 
 ## 代码位置
 
-`lib/widgets/action_card.dart`
+```
+demo/lib/comp_src/widgets/action_card.dart
+```
 
 ## 输入与输出
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
-import '../services/drawing_service.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../comp_src/services/drawing_service.dart';
 
 /// 搜索结果列表组件 - 显示搜索到的图纸列表
 class SearchResultsList extends StatelessWidget {
@@ -94,8 +94,8 @@ class _ResultCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-          width: 1.5,
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          width: isDark ? 2.0 : 1.5,
         ),
       ),
       child: InkWell(

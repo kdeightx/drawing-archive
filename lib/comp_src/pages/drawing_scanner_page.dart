@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
-import '../services/drawing_service.dart';
-import '../widgets/action_card.dart';
-import '../widgets/image_display_card.dart';
-import '../widgets/smart_process_stepper.dart';
-import 'drawing_search_page.dart';
-import 'drawing_settings_page.dart';
+import '../../l10n/app_localizations.dart';
+import '../../comp_src/services/drawing_service.dart';
+import '../../comp_src/widgets/action_card.dart';
+import '../../comp_src/widgets/image_display_card.dart';
+import '../../comp_src/widgets/smart_process_stepper.dart';
+import '../../comp_src/pages/drawing_search_page.dart';
+import '../../comp_src/pages/drawing_settings_page.dart';
 
 /// 进度状态
 enum ProgressState {
@@ -394,10 +394,13 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
   }
 
   PreferredSizeWidget _buildAppBar(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
       title: Text(l10n.scanTitle),
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       actions: [
         IconButton(
           icon: const Icon(Icons.settings_outlined),
@@ -414,9 +417,10 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
   }
 
   Widget _buildGridBackground() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
       size: Size.infinite,
-      painter: _GridPainter(),
+      painter: _GridPainter(isDark: isDark),
     );
   }
 
@@ -482,8 +486,8 @@ class _DrawingScannerPageState extends State<DrawingScannerPage>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-          width: 1.5,
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          width: isDark ? 2.0 : 1.5,
         ),
       ),
       child: Container(
@@ -805,8 +809,8 @@ class _ConfirmImageDialog extends StatelessWidget {
           border: Border.all(
             color: isPrimary
                 ? Colors.transparent
-                : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
-            width: 1,
+                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1)),
+            width: isDark ? 1.5 : 1,
           ),
         ),
         child: Center(
@@ -827,10 +831,16 @@ class _ConfirmImageDialog extends StatelessWidget {
 }
 
 class _GridPainter extends CustomPainter {
+  final bool isDark;
+
+  _GridPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE2E8F0).withValues(alpha: 0.5)
+      ..color = isDark
+          ? const Color(0xFF64748B).withValues(alpha: 0.25)
+          : const Color(0xFF94A3B8).withValues(alpha: 0.25)
       ..strokeWidth = 1;
 
     const gridSize = 32.0;

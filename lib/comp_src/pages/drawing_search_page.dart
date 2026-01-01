@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
-import '../services/drawing_service.dart';
-import '../widgets/search_input_card.dart';
-import '../widgets/search_results_list.dart';
+import '../../l10n/app_localizations.dart';
+import '../../comp_src/services/drawing_service.dart';
+import '../../comp_src/widgets/search_input_card.dart';
+import '../../comp_src/widgets/search_results_list.dart';
 
 /// 图纸搜索页面 - 精密工业风格
 class DrawingSearchPage extends StatefulWidget {
@@ -144,21 +144,25 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
   }
 
   PreferredSizeWidget _buildAppBar(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_outlined),
         onPressed: () => Navigator.pop(context),
       ),
       title: Text(l10n.searchTitle),
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
     );
   }
 
   Widget _buildGridBackground() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
       size: Size.infinite,
-      painter: _GridPainter(),
+      painter: _GridPainter(isDark: isDark),
     );
   }
 
@@ -193,8 +197,8 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           border: Border.all(
             color: hasFilter
                 ? Theme.of(context).colorScheme.primary
-                : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
-            width: hasFilter ? 2 : 1.5,
+                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1)),
+            width: hasFilter ? 2 : (isDark ? 2.0 : 1.5),
           ),
         ),
         child: Row(
@@ -330,8 +334,8 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-            width: 1.5,
+            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+            width: isDark ? 2.0 : 1.5,
           ),
         ),
         child: Row(
@@ -360,10 +364,16 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
 }
 
 class _GridPainter extends CustomPainter {
+  final bool isDark;
+
+  _GridPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE2E8F0).withValues(alpha: 0.5)
+      ..color = isDark
+          ? const Color(0xFF64748B).withValues(alpha: 0.25)
+          : const Color(0xFF94A3B8).withValues(alpha: 0.25)
       ..strokeWidth = 1;
 
     const gridSize = 32.0;

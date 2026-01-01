@@ -191,4 +191,6 @@ _buildSettingsSection('其他', children: [...])                // 其他功能
 |------|------|
 | `lib/main.dart` | DrawingScannerApp 定义，提供状态管理方法 |
 | `lib/l10n/app_localizations.dart` | 国际化文本 |
-| `lib/pages/ai_api_config_page.dart` | AI API 配置页面 |
+| ```
+demo/lib/comp_src/pages/drawing_settings_page.dart
+``` | AI API 配置页面 |

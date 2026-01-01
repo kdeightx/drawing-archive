@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'l10n/app_localizations.dart';
-import 'pages/drawing_scanner_page.dart';
-import 'services/drawing_service.dart';
+import 'comp_src/pages/drawing_scanner_page.dart';
+import 'comp_src/services/drawing_service.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(

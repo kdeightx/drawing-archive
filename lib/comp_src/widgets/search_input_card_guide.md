@@ -6,7 +6,9 @@
 
 ## 代码位置
 
-`lib/widgets/search_input_card.dart`
+```
+demo/lib/comp_src/widgets/search_input_card.dart
+```
 
 ## 输入与输出
 
@@ -126,5 +128,9 @@ class _MyPageState extends State<MyPage> {
 
 ## 相关文件
 
-- `lib/pages/drawing_search_page.dart` - 使用该组件的搜索页面
-- `lib/widgets/search_results_list_guide.md` - 搜索结果列表组件文档
+- ```
+demo/lib/comp_src/widgets/search_input_card.dart
+``` - 使用该组件的搜索页面
+- ```
+demo/lib/comp_src/widgets/search_input_card.dart
+``` - 搜索结果列表组件文档

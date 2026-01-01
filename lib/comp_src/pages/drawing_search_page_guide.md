@@ -197,8 +197,16 @@ void _clearDateFilter() {
 
 | 文件 | 说明 |
 |------|------|
-| `lib/services/drawing_service.dart` | 提供搜索功能 |
-| `lib/pages/drawing_scanner_page.dart` | 通过搜索按钮从此页跳转 |
+| ```
+demo/lib/comp_src/pages/drawing_search_page.dart
+``` | 提供搜索功能 |
+| ```
+demo/lib/comp_src/pages/drawing_search_page.dart
+``` | 通过搜索按钮从此页跳转 |
 | `lib/l10n/app_localizations.dart` | 国际化文本 |
-| `lib/widgets/search_input_card_guide.md` | 搜索输入框组件文档 |
-| `lib/widgets/search_results_list_guide.md` | 搜索结果列表组件文档 |
+| ```
+demo/lib/comp_src/pages/drawing_search_page.dart
+``` | 搜索输入框组件文档 |
+| ```
+demo/lib/comp_src/pages/drawing_search_page.dart
+``` | 搜索结果列表组件文档 |

@@ -78,8 +78,8 @@ class ActionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-          width: 1.5,
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          width: isDark ? 2.0 : 1.5,
         ),
       ),
       child: Padding(
@@ -212,11 +212,11 @@ class ActionCard extends StatelessWidget {
         // 编号列表容器
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-              width: 1,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+              width: isDark ? 1.5 : 1,
             ),
           ),
           child: Column(
@@ -326,7 +326,7 @@ class ActionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+        color: Colors.transparent,
         border: Border(
           bottom: BorderSide(
             color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
@@ -343,8 +343,8 @@ class ActionCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-                width: 1,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+                width: isDark ? 1.5 : 1,
               ),
             ),
             child: ClipRRect(

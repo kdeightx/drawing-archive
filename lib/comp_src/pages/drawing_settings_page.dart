@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
-import '../main.dart';
-import 'ai_api_config_page.dart';
+import '../../l10n/app_localizations.dart';
+import '../../main.dart';
+import '../../comp_src/pages/ai_api_config_page.dart';
 
 /// 设置页面 - 精密工业风格
 class DrawingSettingsPage extends StatefulWidget {
@@ -114,21 +114,25 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
   }
 
   PreferredSizeWidget _buildAppBar(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_outlined),
         onPressed: () => Navigator.pop(context),
       ),
       title: Text(l10n.settingsTitle),
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
     );
   }
 
   Widget _buildGridBackground() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
       size: Size.infinite,
-      painter: _GridPainter(),
+      painter: _GridPainter(isDark: isDark),
     );
   }
 
@@ -155,8 +159,8 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-              width: 1.5,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+              width: isDark ? 2.0 : 1.5,
             ),
           ),
           child: Column(children: children),
@@ -432,10 +436,16 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
 }
 
 class _GridPainter extends CustomPainter {
+  final bool isDark;
+
+  _GridPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE2E8F0).withValues(alpha: 0.5)
+      ..color = isDark
+          ? const Color(0xFF64748B).withValues(alpha: 0.25)
+          : const Color(0xFF94A3B8).withValues(alpha: 0.25)
       ..strokeWidth = 1;
 
     const gridSize = 32.0;

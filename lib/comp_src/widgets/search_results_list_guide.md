@@ -6,7 +6,9 @@
 
 ## 代码位置
 
-`lib/widgets/search_results_list.dart`
+```
+demo/lib/comp_src/widgets/search_results_list.dart
+```
 
 ## 输入与输出
 
@@ -30,7 +32,9 @@
 - `package:flutter/material.dart`
 
 ### 内部依赖
-- `lib/services/drawing_service.dart` - DrawingEntry 数据模型
+- ```
+demo/lib/comp_src/widgets/search_results_list.dart
+``` - DrawingEntry 数据模型
 
 ## 使用示例
 
@@ -151,6 +155,12 @@ class _MyPageState extends State<MyPage> {
 
 ## 相关文件
 
-- `lib/pages/drawing_search_page.dart` - 使用该组件的搜索页面
-- `lib/widgets/search_input_card_guide.md` - 搜索输入框组件文档
-- `lib/services/drawing_service.dart` - DrawingEntry 数据模型
+- ```
+demo/lib/comp_src/widgets/search_results_list.dart
+``` - 使用该组件的搜索页面
+- ```
+demo/lib/comp_src/widgets/search_results_list.dart
+``` - 搜索输入框组件文档
+- ```
+demo/lib/comp_src/widgets/search_results_list.dart
+``` - DrawingEntry 数据模型

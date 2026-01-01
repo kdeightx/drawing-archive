@@ -24,8 +24,8 @@ class SearchInputCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-          width: 1.5,
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          width: isDark ? 2.0 : 1.5,
         ),
       ),
       child: Padding(

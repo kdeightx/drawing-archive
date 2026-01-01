@@ -6,7 +6,9 @@
 
 ## 代码位置
 
-`lib/widgets/image_display_card.dart`
+```
+demo/lib/comp_src/widgets/image_display_card.dart
+```
 
 ## 输入与输出
 
@@ -159,6 +161,12 @@ Card(
 
 ## 相关文件
 
-- `lib/pages/drawing_scanner_page.dart` - 使用该组件的主页面
-- `lib/widgets/smart_process_stepper_guide.md` - 进度指示器组件文档
-- `lib/widgets/action_card_guide.md` - 操作卡片组件文档
+- ```
+demo/lib/comp_src/widgets/image_display_card.dart
+``` - 使用该组件的主页面
+- ```
+demo/lib/comp_src/widgets/image_display_card.dart
+``` - 进度指示器组件文档
+- ```
+demo/lib/comp_src/widgets/image_display_card.dart
+``` - 操作卡片组件文档

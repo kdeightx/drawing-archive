@@ -6,7 +6,9 @@ AI API 配置页面 - 用于让用户配置第三方大模型 API 参数（API K
 
 ## 代码位置
 
-`lib/pages/ai_api_config_page.dart`
+```
+demo/lib/comp_src/pages/ai_api_config_page.dart
+```
 
 ## 输入与输出
 
@@ -159,6 +161,8 @@ border: OutlineInputBorder(
 
 | 文件 | 说明 |
 |------|------|
-| `lib/pages/drawing_settings_page.dart` | 通过设置页面跳转 |
+| ```
+demo/lib/comp_src/pages/ai_api_config_page.dart
+``` | 通过设置页面跳转 |
 | `lib/l10n/app_zh.arb` | 中文国际化文本 |
 | `lib/l10n/app_en.arb` | 英文国际化文本 |
