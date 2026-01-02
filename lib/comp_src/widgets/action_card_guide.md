@@ -7,7 +7,7 @@
 ## 代码位置
 
 ```
-demo/lib/comp_src/widgets/action_card.dart
+lib/comp_src/widgets/action_card.dart
 ```
 
 ## 输入与输出
@@ -98,153 +98,225 @@ class _MyPageState extends State<MyPage> {
   bool _isSaving = false;
 
   // 创建编号项列表
-  List<NumberItem> _buildNumberItems() {
-    return List.generate(_images.length, (index) {
+  List<NumberItem> createNumberItems(List<File> images) {
+    return List.generate(images.length, (index) {
       return NumberItem(
-        id: 'img_$index',
-        image: _images[index],
+        id: 'item_$index',
+        image: images[index],
         index: index,
-        number: _controllers[index].text,
-        hasAiNumber: _recognizedNumbers[index].isNotEmpty,
-        recognitionFailed: _recognitionFailedList[index],
+        number: '',
+        hasAiNumber: false,
+        recognitionFailed: false,
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = _buildNumberItems();
-    final totalPages = (items.length / 5).ceil();
-
     return ActionCard(
       onCameraTap: _handleCamera,
       onGalleryTap: _handleGallery,
-      onSearchTap: () => Navigator.push(...),
-      numberItems: items,
+      onSearchTap: _handleSearch,
+      numberItems: _numberItems,
       currentPage: _currentPage,
-      totalPages: totalPages,
+      totalPages: (_numberItems.length / 5).ceil(),
       onNumberChange: (index) {
-        // 更新编号
-        _controllers[index].text = items[index].number;
+        setState(() {
+          // 处理编号变化
+        });
       },
       onDeleteTap: (index) {
         setState(() {
-          _images.removeAt(index);
-          // 更新页码等
+          // 处理删除图片
         });
       },
-      onPreviousPage: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
-      onNextPage: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
-      onUpload: viewModel.isAnalyzing ? null : _handleUpload,
-      onClearAll: _handleClearAll,
+      onPreviousPage: _currentPage > 0 ? () {
+        setState(() {
+          _currentPage--;
+        });
+      } : null,
+      onNextPage: _currentPage < totalPages - 1 ? () {
+        setState(() {
+          _currentPage++;
+        });
+      } : null,
       onSave: _handleSave,
+      onUpload: _handleUpload,
+      onClearAll: _handleClearAll,
       isSaving: _isSaving,
-      isAnalyzing: _isAnalyzing,
+      isAnalyzing: false,
     );
   }
 }
 ```
 
-### 示例 3：自定义每页显示数量
+### 示例 3：在全屏预览中查看图片
 
 ```dart
-ActionCard(
-  onCameraTap: () {},
-  onGalleryTap: () {},
-  onSearchTap: () {},
-  numberItems: items,
-  currentPage: 0,
-  totalPages: (items.length / 10).ceil(),
-  itemsPerPage: 10,  // 自定义每页显示10项
-  onNumberChange: (index) {},
-  onDeleteTap: (index) {},
-  onSave: () {},
-)
+// ActionCard 内置了全屏预览功能
+// 点击缩略图 → 打开 FullScreenImageViewer
+
+// 全屏预览功能：
+// - 支持多图滑动切换
+// - 支持双击缩放
+// - 支持双指旋转
+// - 支持手势拖动
+// - 沉浸式交互（单击隐藏/显示 UI）
+// - 启用旋转功能（enableRotation: true）
+
+// 预览数据来源：
+// - imagePaths: 从 ViewModel 的 selectedImages 获取
+// - imageTitles: 从 ViewModel 的 recognizedNumbers 获取
+// - initialIndex: 点击的缩略图索引
 ```
 
 ### 示例 4：点击缩略图打开全屏预览
 
 ```dart
 // ActionCard 内置了全屏预览功能
-// 点击编号项中的缩略图会自动打开 FullScreenImageViewer
-//
-// 全屏预览功能：
-// - 显示所有已选择的图片（通过 DrawingScannerViewModel.selectedImages）
-// - 支持左右滑动切换图片
-// - 支持双击放大（以点击位置为中心）
-// - 支持双指缩放、旋转、拖动
-// - 顶部操作栏：返回按钮 + 旋转按钮 + 图片编号
-// - 底部指示器：圆点显示当前位置
-// - 单击屏幕隐藏/显示 UI（沉浸式交互）
-//
-// 无需额外配置，点击缩略图即可使用
+// 点击缩略图 → 打开 FullScreenImageViewer 全屏预览
+
+/// 显示全屏预览
+void _showFullScreenPreview(BuildContext context, int index) {
+  final viewModel = context.read<DrawingScannerViewModel>();
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => FullScreenImageViewer(
+        imagePaths: viewModel.selectedImages.map((file) => file.path).toList(),
+        imageTitles: viewModel.recognizedNumbers,
+        initialIndex: index,
+        enableRotation: true,
+      ),
+    ),
+  );
+}
 ```
 
 ## UI 子组件
 
-| 方法 | 行号 | 说明 |
-|------|------|------|
-| `_buildActionButton` | 141-196 | 操作按钮（相机/相册） |
-| `_buildSearchButton` | 197-230 | 搜索按钮（渐变样式） |
-| `_buildNumberSection` | 232-383 | 编号区域容器 |
-| `_buildNumberHeader` | 385-431 | 编号区域标题行 |
-| `_buildNumberItem` | 433-591 | 单个编号输入项（含可点击的缩略图） |
-| `_buildPaginationButtons` | 593-656 | 分页按钮（带禁用状态样式） |
-| `_showFullScreenPreview` | 658-669 | 显示全屏预览（导航到 FullScreenImageViewer） |
+| 子组件 | 代码位置 | 说明 |
+|--------|----------|------|
+| `_buildActionButton` | 142-195 | 操作按钮（相机/相册） |
+| `_buildSearchButton` | 198-230 | 搜索按钮（渐变样式） |
+| `_buildNumberSection` | 233-288 | 编号区域容器 |
+| `_buildNumberHeader` | 291-336 | 编号标题行 |
+| `_buildNumberItem` | 339-496 | 单个编号输入项 |
+| `_buildPaginationButtons` | 499-561 | 分页按钮 |
+| `_showFullScreenPreview` | 564-577 | 显示全屏预览（导航到 FullScreenImageViewer） |
+
+## 架构说明
+
+### 依赖关系
+
+```
+DrawingScannerPage (页面)
+    └── Provider<DrawingScannerViewModel>
+            └── ActionCard (组件)
+                    ├── context.read<DrawingScannerViewModel>() ← 隐式依赖
+                    └── FullScreenImageViewer (组件) ← 显式依赖
+```
+
+**注意**：ActionCard 通过 `context.read<DrawingScannerViewModel>()` 访问 ViewModel，这是一种隐式依赖。
+
+### 组件独立性
+
+- **ActionCard**: 依赖于 DrawingScannerViewModel（通过 Provider）
+- **FullScreenImageViewer**: 完全独立，通过构造函数参数传递数据
+
+### 高内聚低耦合
+
+1. **高内聚**：ActionCard 负责图纸编号输入的整个流程
+2. **低耦合**：
+   - ActionCard 与 FullScreenImageViewer 之间通过构造函数参数传递数据
+   - FullScreenImageViewer 不依赖 ViewModel
+   - ActionCard 可以在其他场景中复用
+
+## 功能说明
+
+### 1. 图片选择功能（第 104-127 行）
+
+- **相机按钮**：调用 `onCameraTap` 回调
+- **相册按钮**：调用 `onGalleryTap` 回调
+- **状态**：分析中时禁用（`isEnabled: !isAnalyzing`）
+
+### 2. 搜索按钮（第 198-230 行）
+
+- 渐变样式（主题色渐变）
+- 始终可点击（不受 `isAnalyzing` 影响）
+- 点击触发 `onSearchTap` 回调
+
+### 3. 编号输入功能（第 339-496 行）
+
+**单个编号项包含**：
+- 删除按钮（分析中时禁用）
+- 图片缩略图（48x48，可点击打开全屏预览）
+- 序号标签（例如 #1, #2）
+- 编号输入框（支持手动输入和 AI 识别）
+- AI 标识（识别成功时显示）
+
+**输入框状态**：
+- **启用**：可以手动输入编号
+- **禁用**：上传识别流程中禁用（`isEnabled: !viewModel.isAnalyzing`）
+
+**删除按钮状态**：
+- **启用**：可以删除图片
+- **禁用**：上传识别流程中禁用（`canDelete: !viewModel.isAnalyzing`）
+
+### 4. 分页功能（第 499-561 行）
+
+- **显示条件**：`numberItems.length > itemsPerPage`（默认超过 5 张）
+- **上一页**：`onPreviousPage` 为 null 时禁用
+- **下一页**：`onNextPage` 为 null 时禁用
+
+### 5. 操作按钮（第 278-285 行）
+
+使用独立的 `ActionButtons` 组件：
+- **清空**：调用 `onClearAll` 回调
+- **上传识别**：调用 `onUpload` 回调
+- **保存**：调用 `onSave` 回调
+
+### 6. 全屏预览功能（第 564-577 行）
+
+点击缩略图打开全屏图片查看器：
+- 从 ViewModel 获取图片路径和标题
+- 支持多图滑动切换
+- 启用旋转功能（`enableRotation: true`）
+- 支持手势缩放、旋转、拖动
 
 ## 修改注意事项
 
-1. **全屏预览功能**（第 470-472 行）：
-   - 点击缩略图会打开 FullScreenImageViewer
-   - 通过 Provider 获取 DrawingScannerViewModel，自动设置当前图片索引和重置旋转
-   - 全屏预览组件支持手势缩放、旋转、滑动切换、沉浸式交互
-   - 必须确保 DrawingScannerViewModel 已在组件树中提供
+### 上传识别流程中的状态控制
 
-2. **NumberItem 数据同步**：`number`、`hasAiNumber` 和 `recognitionFailed` 是可变字段，需要在外部维护同步
+在上传识别流程中（从 `isAnalyzing` 开始到识别完成）：
+- ❌ 相机/相册按钮：禁用
+- ✅ 搜索按钮：启用
+- ❌ 编号输入框：禁用
+- ❌ 删除按钮：禁用
+- ✅ 分页按钮：启用（不依赖 `isAnalyzing`）
+- ❌ 操作按钮：禁用（上传识别按钮禁用，清空/保存按钮启用但列表为空时清空禁用）
 
-3. **编号输入处理**：`onNumberChange` 回调参数是项的索引（不是数组索引），需要通过 `item.index` 获取实际索引
+### ViewModel 依赖
 
-4. **分页计算**：`totalPages` 需要在外部计算，公式为 `(items.length / itemsPerPage).ceil()`
+ActionCard 通过 `context.read<DrawingScannerViewModel>()` 访问 ViewModel：
+- 获取 `selectedImages` 和 `recognizedNumbers` 用于全屏预览
+- 获取 `isAnalyzing` 状态控制 UI 禁用
 
-5. **分页按钮状态**：`onPreviousPage` 和 `onNextPage` 为 `null` 时按钮自动禁用
+这种设计是**高耦合**的，如果要让 ActionCard 完全独立，应该通过构造函数参数传递这些状态。
 
-6. **图片缩略图**：使用 48x48 固定尺寸，`BoxFit.cover` 裁剪，**可点击打开全屏预览**
+### 组件引用组件
 
-7. **AI 识别标识**：仅当 `NumberItem.hasAiNumber` 为 `true` 时显示星星图标
-
-8. **边框增强样式**（第 90-96 行）：
-   - Card 组件增加了 `side` 边框属性
-   - 深色模式：边框颜色 `#94A3B8`，宽度 2.0
-   - 浅色模式：边框颜色 `#CBD5E1`，宽度 1.5
-
-9. **分页按钮禁用样式**（第 607-629 行）：
-    - 禁用状态边框颜色：深色 `#334155`，浅色 `#E2E8F0`
-    - 禁用状态文字颜色：深色 `#475569`，浅色 `#94A3B8`
-    - 启用状态边框颜色：主题色带 30% 透明度
-    - 启用状态文字颜色：主题色
-
-10. **输入框焦点管理**（第 525-528 行）：
-    - 使用 TextField 的 `onTapOutside` 属性处理外部点击
-    - 点击输入框外部时自动取消焦点（Flutter 3.13+ 特性）
-    - 替代了外层 GestureDetector 方案（TextField 会消费 tap 事件）
-
-11. **识别失败状态显示**（第 517 行）：
-    - 输入框 hint 文本根据 `item.recognitionFailed` 动态显示
-    - 识别失败：显示 "识别失败"
-    - 正常状态：显示 "输入图纸编号"
-
-12. **操作按钮组件**（第 278-285 行）：
-    - 使用独立的 ActionButtons 组件显示三个操作按钮
-    - 清空、上传识别、保存按钮的样式和禁用逻辑在 ActionButtons 组件中实现
-    - 详见 `action_buttons_guide.md`
+ActionCard 引用 FullScreenImageViewer 是**合理的设计**：
+- ✅ 职责分离清晰（ActionCard 负责业务，FullScreenImageViewer 负责 UI）
+- ✅ 高内聚（点击缩略图查看全屏是 ActionCard 的内部功能）
+- ✅ 低耦合（通过构造函数参数传递数据，不共享状态）
+- ✅ 可复用（FullScreenImageViewer 可以在任何地方使用）
 
 ## 相关文件
 
-- `lib/comp_src/pages/drawing_scanner_page.dart` - 使用该组件的主页面
-- `lib/comp_src/view_models/drawing_scanner_view_model.dart` - 提供图片数据和状态管理
-- `lib/comp_src/widgets/action_buttons.dart` - 操作按钮组件（清空、上传识别、保存）
-- `lib/comp_src/widgets/action_buttons_guide.md` - 操作按钮组件文档
-- `lib/comp_src/widgets/full_screen_image_viewer.dart` - 全屏图片预览组件
-- `lib/comp_src/widgets/full_screen_image_viewer_guide.md` - 全屏预览组件文档
-- `lib/comp_src/widgets/smart_process_stepper_guide.md` - 进度指示器组件文档
-- `lib/comp_src/widgets/image_display_card_guide.md` - 图片显示卡片组件文档
+| 文件 | 说明 |
+|------|------|
+| `lib/comp_src/widgets/action_card.dart` | 组件代码 |
+| `lib/comp_src/widgets/action_buttons.dart` | 操作按钮组件 |
+| `lib/comp_src/widgets/full_screen_image_viewer.dart` | 全屏图片预览组件 |
+| `lib/comp_src/view_models/drawing_scanner_view_model.dart` | 图片数据和旋转状态管理 |

@@ -58,9 +58,6 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   /// 控制 UI 是否显示（用于沉浸式交互）
   bool _showControls = true;
 
-  /// 当前页面索引（本地状态，避免在 PageView 构建前访问 PageController.page）
-  int _currentIndex = 0;
-
   /// 判断是否应该允许页面滑动（当缩放比例 > 1.0 时禁止滑动）
   bool get _allowPageScroll {
     final scale = _transformationController.value.getMaxScaleOnAxis();
@@ -75,7 +72,6 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
     _transformationController = TransformationController();
     _pageController = PageController(initialPage: widget.initialIndex);
-    _currentIndex = widget.initialIndex; // 初始化当前索引
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -101,29 +97,40 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          _buildImageContent(),
-          _buildTopAppBar(),
-          _buildBottomIndicator(),
-        ],
+      body: Consumer<DrawingScannerViewModel>(
+        builder: (context, viewModel, child) {
+          return Stack(
+            children: [
+              _buildImageContent(viewModel),
+              _buildTopAppBar(viewModel),
+              _buildBottomIndicator(viewModel),
+            ],
+          );
+        },
       ),
     );
   }
 
   /// 构建图片内容区域
-  Widget _buildImageContent() {
+  Widget _buildImageContent(DrawingScannerViewModel viewModel) {
+    if (viewModel.selectedImages.isEmpty) {
+      return const Center(
+        child: Text(
+          '暂无图片',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
+      );
+    }
+
     return PageView.builder(
       controller: _pageController,
-      itemCount: widget.imagePaths.length,
+      itemCount: viewModel.selectedImages.length,
       physics: _allowPageScroll
           ? const AlwaysScrollableScrollPhysics()
           : const NeverScrollableScrollPhysics(), // 缩放时禁止滑动切换
       onPageChanged: (index) {
-        setState(() {
-          _currentIndex = index; // 更新当前索引
-          _currentRotation = 0; // 页面切换时重置旋转
-        });
+        viewModel.setCurrentImageIndex(index);
+        viewModel.resetRotation();
       },
       itemBuilder: (context, index) {
         return GestureDetector(
@@ -146,7 +153,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
           // 使用 translucent 让滑动手势传递给 PageView
           behavior: HitTestBehavior.translucent,
           child: SizedBox.expand(
-            child: _buildRotatedImage(index),
+            child: _buildRotatedImage(viewModel, index),
           ),
         );
       },
@@ -234,26 +241,26 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   }
 
   /// 构建可旋转、缩放、移动的图片（支持双指旋转 + 定点缩放）
-  Widget _buildRotatedImage(int index) {
+  Widget _buildRotatedImage(DrawingScannerViewModel viewModel, int index) {
     final size = MediaQuery.of(context).size;
-    final isRotated = _currentRotation == 90 || _currentRotation == 270;
+    final isRotated = viewModel.currentRotation == 90 || viewModel.currentRotation == 270;
 
     return Center(
       child: RotatedBox(
-        quarterTurns: _currentRotation ~/ 90,
+        quarterTurns: viewModel.currentRotation ~/ 90,
         child: SizedBox(
           width: isRotated ? size.height : size.width,
           height: isRotated ? size.width : size.height,
-          child: _buildGestureImage(index),
+          child: _buildGestureImage(viewModel, index),
         ),
       ),
     );
   }
 
   /// 构建带手势的图片（双指缩放+旋转+移动）
-  Widget _buildGestureImage(int index) {
+  Widget _buildGestureImage(DrawingScannerViewModel viewModel, int index) {
     return Container(
-      key: index == _currentIndex ? _transformKey : null, // 只在当前页绑定 key
+      key: index == viewModel.currentImageIndex ? _transformKey : null, // 只在当前页绑定 key
       child: AnimatedBuilder(
         animation: _transformationController,
         builder: (context, child) {
@@ -322,7 +329,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
               transform: _transformationController.value,
               alignment: Alignment.center, // 矩阵已经处理了对齐，这里默认即可
               child: Image.file(
-                File(widget.imagePaths[index]),
+                viewModel.selectedImages[index],
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return const Center(
@@ -338,7 +345,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   }
 
   /// 构建顶部操作栏
-  Widget _buildTopAppBar() {
+  Widget _buildTopAppBar(DrawingScannerViewModel viewModel) {
     return Positioned(
       top: 0,
       left: 0,
@@ -384,16 +391,12 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
                   children: [
                     IconButton(
                       icon: const Icon(Icons.rotate_left, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _currentRotation = (_currentRotation - 90) % 360;
-                        });
-                      },
+                      onPressed: () => viewModel.rotateCounterClockwise(),
                       tooltip: '逆时针旋转',
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${_currentIndex + 1}/${widget.imagePaths.length}',
+                      '${viewModel.currentImageIndex + 1}/${viewModel.selectedImages.length}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -403,11 +406,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.rotate_right, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _currentRotation = (_currentRotation + 90) % 360;
-                        });
-                      },
+                      onPressed: () => viewModel.rotateClockwise(),
                       tooltip: '顺时针旋转',
                     ),
                   ],
@@ -424,8 +423,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   }
 
   /// 构建底部指示器
-  Widget _buildBottomIndicator() {
-    if (widget.imagePaths.length <= 1) {
+  Widget _buildBottomIndicator(DrawingScannerViewModel viewModel) {
+    if (viewModel.selectedImages.length <= 1) {
       return const SizedBox.shrink();
     }
 
@@ -454,14 +453,14 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  widget.imagePaths.length,
+                  viewModel.selectedImages.length,
                   (index) => AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _currentIndex == index ? 24 : 8,
+                    width: viewModel.currentImageIndex == index ? 24 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: _currentIndex == index
+                      color: viewModel.currentImageIndex == index
                           ? Colors.white
                           : Colors.white.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(4),

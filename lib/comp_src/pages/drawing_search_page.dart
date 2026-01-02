@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io' as io;
 
 import '../../l10n/app_localizations.dart';
 import '../../comp_src/services/drawing_service.dart';
 import '../../comp_src/widgets/search_input_card.dart';
 import '../../comp_src/widgets/search_results_list.dart';
+import '../../comp_src/widgets/full_screen_image_viewer.dart';
 
 /// 图纸搜索页面 - 精密工业风格
 class DrawingSearchPage extends StatefulWidget {
@@ -82,9 +84,9 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
   Future<void> _showDateRangePicker() async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('当前功能未实现'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.currentFeatureNotImplemented),
+          duration: const Duration(seconds: 1),
         ),
       );
     }
@@ -97,6 +99,39 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
       _endDate = null;
     });
     _loadResults();
+  }
+
+  /// 处理搜索结果点击
+  void _handleResultTap(int index) {
+    final entry = _results[index];
+    final imagePath = entry.filePath;
+
+    // 验证文件是否存在
+    final file = io.File(imagePath);
+    if (!file.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('文件不存在: $imagePath'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 打开全屏图片查看器（独立组件）
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageViewer(
+          imagePaths: _results.map((e) => e.filePath).toList(),
+          imageTitles: _results.map((e) => e.number).toList(),
+          initialIndex: index,
+          enableRotation: false, // 搜索结果不需要旋转功能
+        ),
+      ),
+    );
   }
 
   @override
@@ -132,6 +167,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
                     child: SearchResultsList(
                       results: _results,
                       isLoading: _isLoading,
+                      onResultTap: _handleResultTap,
                     ),
                   ),
                 ),
@@ -253,6 +289,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
 
   /// 显示清除日期筛选对话框
   Future<void> _showDateRangeClearDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     return showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -267,7 +304,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              '当前日期范围',
+              l10n.currentDateRange,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -280,7 +317,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '共 ${_results.length} 条结果',
+              l10n.totalResults(_results.length),
               style: const TextStyle(
                 fontSize: 13,
                 color: Color(0xFF94A3B8),
@@ -296,18 +333,18 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
                       _clearDateFilter();
                     },
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: const Color(0xFF94A3B8),
+                      side: const BorderSide(
+                        color: Color(0xFF94A3B8),
                       ),
                     ),
-                    child: const Text('清除'),
+                    child: Text(l10n.clear),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('修改'),
+                    child: Text(l10n.modify),
                   ),
                 ),
               ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' as io;
 
 import '../../../l10n/app_localizations.dart';
 import '../../comp_src/services/drawing_service.dart';
@@ -7,7 +8,7 @@ import '../../comp_src/services/drawing_service.dart';
 class SearchResultsList extends StatelessWidget {
   final List<DrawingEntry> results;
   final bool isLoading;
-  final VoidCallback? onResultTap;
+  final Function(int)? onResultTap;
 
   const SearchResultsList({
     super.key,
@@ -43,7 +44,7 @@ class SearchResultsList extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '未找到相关图纸',
+              l10n.noResultsFound,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF64748B),
               ),
@@ -62,6 +63,7 @@ class SearchResultsList extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: _ResultCard(
             item: item,
+            index: index,
             onTap: onResultTap,
             formatDate: _formatDate,
           ),
@@ -74,11 +76,13 @@ class SearchResultsList extends StatelessWidget {
 /// 单个搜索结果卡片组件
 class _ResultCard extends StatelessWidget {
   final DrawingEntry item;
-  final VoidCallback? onTap;
+  final int index;
+  final Function(int)? onTap;
   final String Function(DateTime) formatDate;
 
   const _ResultCard({
     required this.item,
+    required this.index,
     required this.onTap,
     required this.formatDate,
   });
@@ -100,12 +104,12 @@ class _ResultCard extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
+        onTap: onTap != null ? () => onTap!(index) : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // 图纸图标
+              // 图片缩略图
               Container(
                 width: 72,
                 height: 72,
@@ -117,10 +121,28 @@ class _ResultCard extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: Icon(
-                  Icons.description_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 32,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: Image.file(
+                    io.File(item.filePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.description_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 32,
+                      );
+                    },
+                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded) return child;
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                        child: child,
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(width: 16),

@@ -490,6 +490,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search completed'**
   String get searchCompleted;
+
+  /// No description provided for @currentFeatureNotImplemented.
+  ///
+  /// In en, this message translates to:
+  /// **'Feature not implemented'**
+  String get currentFeatureNotImplemented;
+
+  /// No description provided for @currentDateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Date Range'**
+  String get currentDateRange;
+
+  /// No description provided for @totalResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Total {count} results'**
+  String totalResults(Object count);
+
+  /// No description provided for @clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clear;
+
+  /// No description provided for @modify.
+  ///
+  /// In en, this message translates to:
+  /// **'Modify'**
+  String get modify;
+
+  /// No description provided for @noResultsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No drawings found'**
+  String get noResultsFound;
+
+  /// No description provided for @drawingDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawing Details'**
+  String get drawingDetails;
+
+  /// No description provided for @viewDrawing.
+  ///
+  /// In en, this message translates to:
+  /// **'View Drawing'**
+  String get viewDrawing;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

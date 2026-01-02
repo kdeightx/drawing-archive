@@ -207,4 +207,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchCompleted => '搜索完成';
+
+  @override
+  String get currentFeatureNotImplemented => '当前功能未实现';
+
+  @override
+  String get currentDateRange => '当前日期范围';
+
+  @override
+  String totalResults(Object count) {
+    return '共 $count 条结果';
+  }
+
+  @override
+  String get clear => '清除';
+
+  @override
+  String get modify => '修改';
+
+  @override
+  String get noResultsFound => '未找到相关图纸';
+
+  @override
+  String get drawingDetails => '图纸详情';
+
+  @override
+  String get viewDrawing => '查看图纸';
 }

@@ -207,4 +207,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchCompleted => 'Search completed';
+
+  @override
+  String get currentFeatureNotImplemented => 'Feature not implemented';
+
+  @override
+  String get currentDateRange => 'Current Date Range';
+
+  @override
+  String totalResults(Object count) {
+    return 'Total $count results';
+  }
+
+  @override
+  String get clear => 'Clear';
+
+  @override
+  String get modify => 'Modify';
+
+  @override
+  String get noResultsFound => 'No drawings found';
+
+  @override
+  String get drawingDetails => 'Drawing Details';
+
+  @override
+  String get viewDrawing => 'View Drawing';
 }

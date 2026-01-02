@@ -65,5 +65,13 @@
   "recognizeFailed": "AI识别失败",
   "saveFailed": "保存失败",
   "saveSuccess": "已保存 {count} 张图片",
-  "searchCompleted": "搜索完成"
+  "searchCompleted": "搜索完成",
+  "currentFeatureNotImplemented": "当前功能未实现",
+  "currentDateRange": "当前日期范围",
+  "totalResults": "共 {count} 条结果",
+  "clear": "清除",
+  "modify": "修改",
+  "noResultsFound": "未找到相关图纸",
+  "drawingDetails": "图纸详情",
+  "viewDrawing": "查看图纸"
 }

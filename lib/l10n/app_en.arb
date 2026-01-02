@@ -65,5 +65,13 @@
   "recognizeFailed": "AI recognition failed",
   "saveFailed": "Save failed",
   "saveSuccess": "Saved {count} image(s)",
-  "searchCompleted": "Search completed"
+  "searchCompleted": "Search completed",
+  "currentFeatureNotImplemented": "Feature not implemented",
+  "currentDateRange": "Current Date Range",
+  "totalResults": "Total {count} results",
+  "clear": "Clear",
+  "modify": "Modify",
+  "noResultsFound": "No drawings found",
+  "drawingDetails": "Drawing Details",
+  "viewDrawing": "View Drawing"
 }

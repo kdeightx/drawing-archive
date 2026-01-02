@@ -482,51 +482,116 @@ class DrawingService {
     DateTime? endDate,
     bool ascending = true,
   }) async {
-    // TODO: 实际实现需要从数据库/服务器查询
-    // return await database.searchDrawings(...);
+    if (_aiImagesDirectory == null) {
+      debugPrint('存储文件夹未初始化');
+      return [];
+    }
 
-    // 当前为模拟实现
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _getMockResults(startDate, endDate, ascending);
-  }
+    try {
+      debugPrint('🔍 开始搜索已归档图纸...');
+      debugPrint('  关键词: ${keyword ?? "无"}');
+      debugPrint('  日期范围: $startDate ~ $endDate');
+      debugPrint('  排序: ${ascending ? "正序" : "倒序"}');
 
-  /// 获取模拟搜索结果
-  List<DrawingEntry> _getMockResults(
-    DateTime? startDate,
-    DateTime? endDate,
-    bool ascending,
-  ) {
-    List<Map<String, dynamic>> mockResults = [
-      {'number': '1.0234-5678', 'date': '2024-01-15', 'status': 'statusArchived'},
-      {'number': '2.0456-7890', 'date': '2024-01-14', 'status': 'statusArchived'},
-      {'number': '3.0678-9012', 'date': '2024-01-13', 'status': 'statusArchived'},
-      {'number': '1.0890-1234', 'date': '2024-01-12', 'status': 'statusArchived'},
-      {'number': '4.0123-4567', 'date': '2024-01-11', 'status': 'statusArchived'},
-      {'number': '5.0345-6789', 'date': '2024-01-10', 'status': 'statusArchived'},
-    ];
+      // 1. 列出文件夹中的所有文件
+      final files = _aiImagesDirectory!.listSync();
+      debugPrint('  文件夹中共有 ${files.length} 个文件');
 
-    // 按日期范围筛选
-    if (startDate != null || endDate != null) {
-      mockResults = mockResults.where((item) {
-        final itemDate = DateTime.parse(item['date']!);
-        if (startDate != null && itemDate.isBefore(startDate)) return false;
-        if (endDate != null && itemDate.isAfter(endDate)) return false;
-        return true;
+      // 2. 筛选出已归档的文件（不包括 AI_ 开头的临时文件）
+      // 并且只保留图片文件（.jpg, .jpeg, .png）
+      final archivedFiles = files.whereType<io.File>().where((file) {
+        final fileName = file.path.split('/').last;
+        final isNotTemp = !fileName.startsWith('AI_');
+
+        // 检查是否是图片文件
+        final extension = fileName.contains('.')
+            ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase()
+            : '';
+        final isImage = ['jpg', 'jpeg', 'png'].contains(extension);
+
+        return isNotTemp && isImage;
       }).toList();
-    }
 
-    // 排序
-    mockResults.sort((a, b) => a['date']!.compareTo(b['date']!));
-    if (!ascending) {
-      mockResults = mockResults.reversed.toList();
-    }
+      debugPrint('  已归档文件数量: ${archivedFiles.length}');
 
-    return mockResults.map((item) => DrawingEntry(
-      number: item['number']!,
-      date: DateTime.parse(item['date']!),
-      status: item['status']!,
-    )).toList();
+      // 3. 构建 DrawingEntry 列表
+      List<DrawingEntry> results = [];
+
+      for (var file in archivedFiles) {
+        try {
+          // 获取文件名（不含扩展名）作为图纸编号
+          final fileName = file.path.split('/').last;
+          final number = fileName.contains('.')
+              ? fileName.substring(0, fileName.lastIndexOf('.'))
+              : fileName;
+
+          // 检查图纸编号是否为空
+          if (number.trim().isEmpty) {
+            debugPrint('  ⚠️ 发现空文件名的异常文件，正在删除: $fileName');
+            try {
+              await file.delete();
+              debugPrint('  ✓ 已删除异常文件: $fileName');
+            } catch (e) {
+              debugPrint('  ✗ 删除异常文件失败: $e');
+            }
+            continue;
+          }
+
+          // 获取文件修改时间作为归档日期
+          final stat = await file.stat();
+          final modifiedDate = stat.modified;
+
+          // 关键词过滤
+          if (keyword != null && keyword.isNotEmpty) {
+            if (!number.toLowerCase().contains(keyword.toLowerCase())) {
+              continue; // 跳过不匹配的文件
+            }
+          }
+
+          // 日期范围过滤
+          if (startDate != null && modifiedDate.isBefore(startDate)) {
+            final startOfDay = DateTime(startDate.year, startDate.month, startDate.day);
+            if (modifiedDate.isBefore(startOfDay)) {
+              continue; // 在开始日期之前
+            }
+          }
+
+          if (endDate != null) {
+            final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+            if (modifiedDate.isAfter(endOfDay)) {
+              continue; // 在结束日期之后
+            }
+          }
+
+          // 添加到结果列表
+          results.add(DrawingEntry(
+            number: number,
+            date: modifiedDate,
+            status: '已归档',
+            filePath: file.path,
+          ));
+
+          debugPrint('  ✓ 找到匹配: $number (${modifiedDate.toString().substring(0, 19)})');
+        } catch (e) {
+          debugPrint('  ✗ 处理文件失败: ${file.path}, 错误: $e');
+          continue;
+        }
+      }
+
+      debugPrint('  搜索完成，找到 ${results.length} 个匹配结果');
+
+      // 4. 排序
+      results.sort((a, b) => ascending
+          ? a.date.compareTo(b.date)
+          : b.date.compareTo(a.date));
+
+      return results;
+    } catch (e) {
+      debugPrint('✗ 搜索失败: $e');
+      return [];
+    }
   }
+
 }
 
 /// 图纸条目数据模型
@@ -534,10 +599,12 @@ class DrawingEntry {
   final String number;
   final DateTime date;
   final String status;
+  final String filePath;
 
   DrawingEntry({
     required this.number,
     required this.date,
     required this.status,
+    required this.filePath,
   });
 }

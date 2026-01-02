@@ -563,14 +563,14 @@ class ActionCard extends StatelessWidget {
   /// 显示全屏预览
   void _showFullScreenPreview(BuildContext context, int index) {
     final viewModel = context.read<DrawingScannerViewModel>();
-    viewModel.setCurrentImageIndex(index);
-    viewModel.resetRotation();
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ChangeNotifierProvider.value(
-          value: viewModel,
-          child: const FullScreenImageViewer(),
+        builder: (context) => FullScreenImageViewer(
+          imagePaths: viewModel.selectedImages.map((file) => file.path).toList(),
+          imageTitles: viewModel.recognizedNumbers,
+          initialIndex: index,
+          enableRotation: true,
         ),
       ),
     );

@@ -15,7 +15,7 @@
 ## 代码位置
 
 ```
-lib/pages/drawing_settings_page.dart
+demo/lib/comp_src/pages/drawing_settings_page.dart
 ```
 
 ---
