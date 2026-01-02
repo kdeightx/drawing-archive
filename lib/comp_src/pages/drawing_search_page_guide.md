@@ -8,7 +8,7 @@
 - **日期筛选**：按日期范围筛选（当前未实现）
 - **排序切换**：支持升序/降序切换
 - **结果展示**：列表展示搜索结果，显示编号、日期、状态
-- **图片预览**：点击搜索结果打开全屏图片查看器
+- **图片预览**：点击搜索结果打开全屏图片查看器（支持旋转）
 - **日期清除**：清除已设置的日期筛选条件
 
 ---
@@ -127,7 +127,7 @@ void _handleResultTap(int index) {
         imagePaths: _results.map((e) => e.filePath).toList(),
         imageTitles: _results.map((e) => e.number).toList(),
         initialIndex: index,
-        enableRotation: false, // 搜索结果不需要旋转功能
+        enableRotation: true, // 搜索结果也支持旋转
       ),
     ),
   );
@@ -160,7 +160,7 @@ Widget _buildOrderToggle(AppLocalizations l10n) {
 | `_buildAppBar` | 182-195 | 顶部导航栏（带返回按钮） |
 | `_buildGridBackground` | 197-203 | 网格背景容器 |
 | `SearchInputCard` | 152-158 | 搜索输入框和搜索按钮（独立组件） |
-| `_buildFilterSection` | 160-216 | 筛选区域容器（日期+排序） |
+| `_buildFilterSection` | 205-217 | 筛选区域容器（日期+排序） |
 | `_buildDateRangeButton` | 219-275 | 日期范围筛选按钮（功能未实现） |
 | `_buildOrderToggle` | 358-399 | 升序/降序切换按钮 |
 | `SearchResultsList` | 164-173 | 搜索结果列表（独立组件） |
@@ -218,7 +218,7 @@ void _clearDateFilter() {
 - 验证文件存在性
 - 支持多图滑动切换
 - 显示图纸编号作为标题
-- 禁用旋转功能（搜索结果不需要编辑）
+- **启用旋转功能**（搜索结果也支持旋转查看）
 
 ### 边框样式增强
 

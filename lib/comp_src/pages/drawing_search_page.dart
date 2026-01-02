@@ -128,7 +128,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           imagePaths: _results.map((e) => e.filePath).toList(),
           imageTitles: _results.map((e) => e.number).toList(),
           initialIndex: index,
-          enableRotation: false, // 搜索结果不需要旋转功能
+          enableRotation: true, // 搜索结果也支持旋转
         ),
       ),
     );

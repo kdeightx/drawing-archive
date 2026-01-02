@@ -113,6 +113,15 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
   /// 构建图片内容区域
   Widget _buildImageContent() {
+    if (widget.imagePaths.isEmpty) {
+      return const Center(
+        child: Text(
+          '暂无图片',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
+      );
+    }
+
     return PageView.builder(
       controller: _pageController,
       itemCount: widget.imagePaths.length,
