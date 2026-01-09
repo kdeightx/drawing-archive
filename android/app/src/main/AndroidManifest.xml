@@ -5,12 +5,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 相机权限 -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- 相册权限 -->
+    <!-- 相册权限 - 支持多版本 Android -->
+    <!-- Android 13+ (API 33+) 使用 READ_MEDIA_IMAGES -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <!-- 存储权限 - 用于创建文件夹和保存图片 -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <!-- 管理外部存储权限 - Android 11+ 需要此权限才能访问外部存储根目录 -->
+    <!-- Android 12 及以下 (API 32-) 使用 READ_EXTERNAL_STORAGE -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- 存储权限 - Android 10 及以下 (API 29-) 需要写权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- 管理外部存储权限 - Android 11+ (API 30+) 可选用于访问外部存储根目录 -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
     <application

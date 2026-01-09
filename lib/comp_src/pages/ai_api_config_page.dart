@@ -67,12 +67,13 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
   }
 
   void _handleSave(AiApiConfigViewModel viewModel) async {
-    final l10n = AppLocalizations.of(context)!;
-
+    // 已删除未使用的 l10n 变量（原 Commit 2d1549c 之前用于国际化字符串访问）
     debugPrint('💾 保存按钮点击');
     debugPrint('  输入框的值:');
     debugPrint('    Base URL: ${_baseUrlController.text}');
-    debugPrint('    API Key: ${_apiKeyController.text.isNotEmpty ? "已填写 (${_apiKeyController.text.length} 字符)" : "空"}');
+    debugPrint(
+      '    API Key: ${_apiKeyController.text.isNotEmpty ? "已填写 (${_apiKeyController.text.length} 字符)" : "空"}',
+    );
     debugPrint('    Model Name: ${_modelNameController.text}');
 
     // 更新 ViewModel 中的值
@@ -82,7 +83,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
 
     debugPrint('  ViewModel 的值:');
     debugPrint('    Base URL: ${viewModel.baseUrl}');
-    debugPrint('    API Key: ${viewModel.apiKey.isNotEmpty ? "已填写 (${viewModel.apiKey.length} 字符)" : "空"}');
+    debugPrint(
+      '    API Key: ${viewModel.apiKey.isNotEmpty ? "已填写 (${viewModel.apiKey.length} 字符)" : "空"}',
+    );
     debugPrint('    Model Name: ${viewModel.modelName}');
 
     // 验证表单
@@ -95,7 +98,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
         _showTopNotification(
           context,
           success ? '配置保存成功！' : (viewModel.errorMessage ?? '保存失败'),
-          backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          backgroundColor: success
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
           icon: success ? Icons.check_circle : Icons.error,
           duration: Duration(seconds: success ? 3 : 5),
         );
@@ -126,10 +131,10 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
     if (mounted) {
       _showTopNotification(
         context,
-        success
-            ? '连接成功！'
-            : (viewModel.errorMessage ?? '连接失败'),
-        backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        success ? '连接成功！' : (viewModel.errorMessage ?? '连接失败'),
+        backgroundColor: success
+            ? const Color(0xFF10B981)
+            : const Color(0xFFEF4444),
         icon: success ? Icons.check_circle : Icons.error,
         duration: Duration(seconds: success ? 3 : 5),
       );
@@ -250,7 +255,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: _isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          color: _isDarkMode
+              ? const Color(0xFF94A3B8)
+              : const Color(0xFFCBD5E1),
           width: _isDarkMode ? 2.0 : 1.5,
         ),
       ),
@@ -266,7 +273,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -305,7 +314,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: _isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          color: _isDarkMode
+              ? const Color(0xFF94A3B8)
+              : const Color(0xFFCBD5E1),
           width: _isDarkMode ? 2.0 : 1.5,
         ),
       ),
@@ -326,14 +337,18 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: _isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+                color: _isDarkMode
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFFE2E8F0),
                 width: _isDarkMode ? 1.5 : 1,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: _isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+                color: _isDarkMode
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFFE2E8F0),
                 width: _isDarkMode ? 1.5 : 1,
               ),
             ),
@@ -346,32 +361,33 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFFEF4444),
-                width: 1,
-              ),
+              borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFFEF4444),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
             ),
             filled: true,
-            fillColor: _isDarkMode ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+            fillColor: _isDarkMode
+                ? const Color(0xFF0F172A).withValues(alpha: 0.5)
+                : const Color(0xFFF8FAFC),
           ),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: _isDarkMode ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+            color: _isDarkMode
+                ? const Color(0xFFF1F5F9)
+                : const Color(0xFF0F172A),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildActionButtons(AppLocalizations l10n, AiApiConfigViewModel viewModel) {
+  Widget _buildActionButtons(
+    AppLocalizations l10n,
+    AiApiConfigViewModel viewModel,
+  ) {
     return Row(
       children: [
         // 测试连接按钮
@@ -379,7 +395,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
           child: SizedBox(
             height: 48,
             child: OutlinedButton(
-              onPressed: viewModel.isTesting ? null : () => _handleTest(viewModel),
+              onPressed: viewModel.isTesting
+                  ? null
+                  : () => _handleTest(viewModel),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.primary,
                 side: BorderSide(
@@ -388,7 +406,9 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
                       : Theme.of(context).colorScheme.primary,
                   width: 1.5,
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: viewModel.isTesting
                   ? const SizedBox(
@@ -413,11 +433,17 @@ class _AiApiConfigViewState extends State<_AiApiConfigView> {
           child: SizedBox(
             height: 48,
             child: ElevatedButton(
-              onPressed: viewModel.isTesting ? null : () => _handleSave(viewModel),
+              onPressed: viewModel.isTesting
+                  ? null
+                  : () => _handleSave(viewModel),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                disabledBackgroundColor: _isDarkMode ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                disabledBackgroundColor: _isDarkMode
+                    ? const Color(0xFF475569)
+                    : const Color(0xFFE2E8F0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -516,18 +542,12 @@ class _TopNotificationState extends State<_TopNotification>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.forward();
   }

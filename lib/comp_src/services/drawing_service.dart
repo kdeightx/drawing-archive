@@ -2,10 +2,13 @@ import 'dart:io' as io;
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart' as image_picker;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// 图片来源枚举
 enum ImageSource { camera, gallery }
@@ -22,59 +25,216 @@ class DrawingService {
   /// 获取 AI 图片存储目录
   io.Directory? get aiImagesDirectory => _aiImagesDirectory;
 
+  /// Platform Channel 名称
+  static const String _storageChannelName = 'com.example.demo/storage';
+
+  /// 获取公共外部存储根目录（仅 Android）
+  /// 通过原生 Android API Environment.getExternalStorageDirectory() 获取
+  static Future<String?> _getPublicExternalStorageRoot() async {
+    if (io.Platform.isAndroid) {
+      try {
+        final String? result = await const MethodChannel(
+          _storageChannelName,
+        ).invokeMethod<String>('getExternalStorageRoot');
+        return result;
+      } catch (e) {
+        debugPrint('获取公共存储根目录失败: $e');
+        return null;
+      }
+    }
+    debugPrint('✓ 清理完成');
+  }
+
   /// 初始化服务 - 检查并创建存储文件夹
   /// 返回 true 表示初始化成功，false 表示需要用户授权
   Future<bool> initialize() async {
     if (kDebugMode) {
-      print('DrawingService: 初始化中...');
+      debugPrint('DrawingService: 初始化中...');
     }
 
     try {
-      // Android 11+ 需要请求 MANAGE_EXTERNAL_STORAGE 权限
+      // 根据不同 Android 版本请求相应的权限
+      io.Directory folder;
+
       if (io.Platform.isAndroid) {
-        final manageStatus = await Permission.manageExternalStorage.status;
-        if (!manageStatus.isGranted) {
-          if (kDebugMode) {
-            print('需要请求管理外部存储权限...');
-          }
-          final result = await Permission.manageExternalStorage.request();
+        // 使用 device_info_plus 获取正确的 Android API 版本
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        final apiLevel = androidInfo.version.sdkInt;
 
-          // 权限被拒绝或永久拒绝，尝试打开设置页面
-          if (!result.isGranted) {
-            debugPrint('✗ 管理外部存储权限被拒绝');
+        if (kDebugMode) {
+          debugPrint('Android API 级别: $apiLevel');
+        }
 
-            // 尝试打开应用设置页面
-            final opened = await openAppSettings();
-            if (opened) {
-              debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+        bool permissionGranted = false;
+
+        if (apiLevel >= 30) {
+          // Android 11+ (API 30+) 需要 MANAGE_EXTERNAL_STORAGE 权限
+          final manageStatus = await Permission.manageExternalStorage.status;
+          if (manageStatus.isGranted) {
+            permissionGranted = true;
+            if (kDebugMode) {
+              debugPrint('✓ 管理外部存储权限已授予');
             }
-            return false;
+          } else {
+            if (kDebugMode) {
+              debugPrint('需要请求管理外部存储权限（Android 11+）...');
+            }
+            final result = await Permission.manageExternalStorage.request();
+
+            if (result.isGranted) {
+              permissionGranted = true;
+              if (kDebugMode) {
+                debugPrint('✓ 管理外部存储权限已授予');
+              }
+            } else if (result.isPermanentlyDenied) {
+              debugPrint('✗ 管理外部存储权限被永久拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+              }
+              return false;
+            } else {
+              debugPrint('✗ 管理外部存储权限被拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+              }
+              return false;
+            }
           }
+        } else if (apiLevel >= 29) {
+          // Android 10 (API 29) 分区存储，需要 MANAGE_EXTERNAL_STORAGE 权限才能访问根目录
           if (kDebugMode) {
-            print('✓ 管理外部存储权限已授予');
+            debugPrint('Android 10 使用分区存储，需要请求管理外部存储权限');
           }
+          final manageStatus = await Permission.manageExternalStorage.status;
+          if (manageStatus.isGranted) {
+            permissionGranted = true;
+            if (kDebugMode) {
+              debugPrint('✓ 管理外部存储权限已授予');
+            }
+          } else {
+            if (kDebugMode) {
+              debugPrint('需要请求管理外部存储权限（Android 10）...');
+            }
+            final result = await Permission.manageExternalStorage.request();
+
+            if (result.isGranted) {
+              permissionGranted = true;
+              if (kDebugMode) {
+                debugPrint('✓ 管理外部存储权限已授予');
+              }
+            } else if (result.isPermanentlyDenied) {
+              debugPrint('✗ 管理外部存储权限被永久拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+              }
+              return false;
+            } else {
+              debugPrint('✗ 管理外部存储权限被拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予"管理所有文件"权限');
+              }
+              return false;
+            }
+          }
+        } else {
+          // Android 7-9 (API 24-28) 需要 WRITE_EXTERNAL_STORAGE 权限
+          if (kDebugMode) {
+            debugPrint('需要请求存储权限（Android 7-9）...');
+          }
+          final storageStatus = await Permission.storage.status;
+          if (storageStatus.isGranted) {
+            permissionGranted = true;
+            if (kDebugMode) {
+              debugPrint('✓ 存储权限已授予');
+            }
+          } else {
+            final result = await Permission.storage.request();
+
+            if (result.isGranted) {
+              permissionGranted = true;
+              if (kDebugMode) {
+                debugPrint('✓ 存储权限已授予');
+              }
+            } else if (result.isPermanentlyDenied) {
+              debugPrint('✗ 存储权限被永久拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予存储权限');
+              }
+              return false;
+            } else {
+              debugPrint('✗ 存储权限被拒绝');
+              final opened = await openAppSettings();
+              if (opened) {
+                debugPrint('已打开应用设置页面，请授予存储权限');
+              }
+              return false;
+            }
+          }
+        }
+
+        if (!permissionGranted) {
+          debugPrint('✗ 必须授予权限才能继续使用应用');
+          return false;
+        }
+
+        // 通过原生 Android API 获取公共外部存储根目录
+        final publicStorageRoot = await _getPublicExternalStorageRoot();
+
+        if (publicStorageRoot != null) {
+          // 使用原生 API 获取的公共存储根目录
+          folder = io.Directory('$publicStorageRoot/DrawingScanner');
+
+          if (kDebugMode) {
+            debugPrint('✓ 动态获取公共存储根目录: $publicStorageRoot');
+          }
+        } else {
+          // 降级：使用应用专属存储
+          final appExternalDir = await getExternalStorageDirectory();
+          if (appExternalDir != null) {
+            folder = io.Directory('${appExternalDir.path}/DrawingScanner');
+
+            if (kDebugMode) {
+              debugPrint('⚠️ 降级使用应用专属存储: ${appExternalDir.path}');
+            }
+          } else {
+            // 最后的降级：应用文档目录
+            final appDocDir = await getApplicationDocumentsDirectory();
+            folder = io.Directory('${appDocDir.path}/DrawingScanner');
+
+            if (kDebugMode) {
+              debugPrint('⚠️ 降级使用应用文档目录: ${appDocDir.path}');
+            }
+          }
+        }
+      } else {
+        // iOS: 使用应用文档目录
+        final appDocDir = await getApplicationDocumentsDirectory();
+        folder = io.Directory('${appDocDir.path}/DrawingScanner');
+
+        if (kDebugMode) {
+          debugPrint('iOS 使用应用文档目录: ${appDocDir.path}');
         }
       }
 
-      // 直接使用外部存储根目录，与 Download、Documents 等系统文件夹同级
-      // 路径格式：/storage/emulated/0/DrawingScanner/
-      final folderPath = '/storage/emulated/0/DrawingScanner';
-      final folder = io.Directory(folderPath);
-
       if (kDebugMode) {
-        print('准备创建/检查文件夹: $folderPath');
+        debugPrint('✓ DrawingScanner 文件夹路径: ${folder.path}');
       }
 
       // 检查文件夹是否存在，不存在则创建
       if (!await folder.exists()) {
         if (kDebugMode) {
-          print('文件夹不存在，正在创建...');
+          debugPrint('文件夹不存在，正在创建...');
         }
         await folder.create(recursive: true);
-        debugPrint('✓ 已创建 AI 图片存储文件夹: $folderPath');
+        debugPrint('✓ 已创建 AI 图片存储文件夹: ${folder.path}');
       } else {
         if (kDebugMode) {
-          print('✓ AI 图片存储文件夹已存在: $folderPath');
+          debugPrint('✓ AI 图片存储文件夹已存在: ${folder.path}');
         }
       }
 
@@ -83,7 +243,7 @@ class DrawingService {
       // 列出文件夹中的文件（如果有）
       if (_aiImagesDirectory != null && kDebugMode) {
         final files = _aiImagesDirectory!.listSync();
-        print('文件夹中共有 ${files.length} 个文件');
+        debugPrint('文件夹中共有 ${files.length} 个文件');
       }
 
       // 清理上次使用时可能残留的临时图片
@@ -121,7 +281,9 @@ class DrawingService {
         return null;
       }
 
-      debugPrint('图片来源: ${source == ImageSource.camera ? "相机" : "相册"}, 路径: ${pickedFile.path}');
+      debugPrint(
+        '图片来源: ${source == ImageSource.camera ? "相机" : "相册"}, 路径: ${pickedFile.path}',
+      );
       return io.File(pickedFile.path);
     } catch (e) {
       debugPrint('选择图片失败: $e');
@@ -140,14 +302,17 @@ class DrawingService {
 
     // 2. 调用多选接口
     try {
-      final List<image_picker.XFile> pickedFiles = await _imagePicker.pickMultipleMedia();
+      final List<image_picker.XFile> pickedFiles = await _imagePicker
+          .pickMultipleMedia();
 
       if (pickedFiles.isEmpty) {
         debugPrint('用户取消选择图片');
         return [];
       }
 
-      final List<io.File> files = pickedFiles.map((xFile) => io.File(xFile.path)).toList();
+      final List<io.File> files = pickedFiles
+          .map((xFile) => io.File(xFile.path))
+          .toList();
       debugPrint('多选图片数量: ${files.length}');
       return files;
     } catch (e) {
@@ -163,11 +328,19 @@ class DrawingService {
     if (source == ImageSource.camera) {
       permission = Permission.camera;
     } else {
-      // 相册权限（根据平台选择）
+      // 相册权限（根据平台和版本选择）
       if (io.Platform.isAndroid) {
-        // Android 13+ 使用 photos
-        // Android 12 及以下 使用 storage
-        permission = Permission.photos;
+        // 获取 Android API 版本
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        final apiLevel = androidInfo.version.sdkInt;
+
+        // Android 13+ (API 33+) 使用 photos
+        // Android 12 及以下 (API 32-) 使用 storage
+        if (apiLevel >= 33) {
+          permission = Permission.photos;
+        } else {
+          permission = Permission.storage;
+        }
       } else {
         // iOS 使用 photos
         permission = Permission.photos;
@@ -206,7 +379,8 @@ class DrawingService {
     }
 
     try {
-      final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
+      final fileName =
+          'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
       final tempPath = '${_aiImagesDirectory!.path}/$fileName';
       await image.copy(tempPath);
       final tempFile = io.File(tempPath);
@@ -226,7 +400,8 @@ class DrawingService {
     // 将图片复制到 AI 图片存储文件夹
     if (shouldCopy && _aiImagesDirectory != null) {
       try {
-        final fileName = 'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
+        final fileName =
+            'AI_${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
         await image.copy('${_aiImagesDirectory!.path}/$fileName');
         debugPrint('已复制图片到存储文件夹: $fileName');
       } catch (e) {
@@ -245,9 +420,11 @@ class DrawingService {
     try {
       // 加载 API 配置
       final prefs = await SharedPreferences.getInstance();
-      final baseUrl = prefs.getString('ai_api_base_url') ?? 'https://api.302.ai/v1';
+      final baseUrl =
+          prefs.getString('ai_api_base_url') ?? 'https://api.302.ai/v1';
       final apiKey = prefs.getString('ai_api_key') ?? '';
-      final modelName = prefs.getString('ai_model_name') ?? 'gemini-1.5-flash-exp';
+      final modelName =
+          prefs.getString('ai_model_name') ?? 'gemini-1.5-flash-exp';
 
       // 检查配置是否有效
       if (apiKey.isEmpty) {
@@ -284,9 +461,7 @@ class DrawingService {
               },
               {
                 'type': 'image_url',
-                'image_url': {
-                  'url': dataUri,
-                },
+                'image_url': {'url': dataUri},
               },
             ],
           },
@@ -295,37 +470,45 @@ class DrawingService {
 
       // 发送请求
       debugPrint('正在调用 AI API 识别图纸编号...');
-      final response = await http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      ).timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw Exception('AI 识别超时');
-        },
-      );
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () {
+              throw Exception('AI 识别超时');
+            },
+          );
 
       // 检查响应
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final String? content = responseData['choices']?.first['message']?['content'];
+        final String? content =
+            responseData['choices']?.first['message']?['content'];
 
         if (content == null || content.isEmpty) {
           throw Exception('AI 未返回识别结果');
         }
 
         // 清理结果（去除可能的换行和多余空格）
-        final cleanResult = content.trim().replaceAll('\n', '').replaceAll('\r', '');
+        final cleanResult = content
+            .trim()
+            .replaceAll('\n', '')
+            .replaceAll('\r', '');
         debugPrint('✓ AI 识别结果: $cleanResult');
 
         // 检查是否是有效的图纸编号格式
         final numberPattern = RegExp(r'^\d+\.\d+-\d+$');
         if (!numberPattern.hasMatch(cleanResult)) {
-          throw Exception('AI 识别结果格式不正确: "$cleanResult"，期望格式：数字.数字-数字（如：1.0101-1100）');
+          throw Exception(
+            'AI 识别结果格式不正确: "$cleanResult"，期望格式：数字.数字-数字（如：1.0101-1100）',
+          );
         }
 
         return cleanResult;
@@ -550,28 +733,43 @@ class DrawingService {
 
           // 日期范围过滤
           if (startDate != null && modifiedDate.isBefore(startDate)) {
-            final startOfDay = DateTime(startDate.year, startDate.month, startDate.day);
+            final startOfDay = DateTime(
+              startDate.year,
+              startDate.month,
+              startDate.day,
+            );
             if (modifiedDate.isBefore(startOfDay)) {
               continue; // 在开始日期之前
             }
           }
 
           if (endDate != null) {
-            final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+            final endOfDay = DateTime(
+              endDate.year,
+              endDate.month,
+              endDate.day,
+              23,
+              59,
+              59,
+            );
             if (modifiedDate.isAfter(endOfDay)) {
               continue; // 在结束日期之后
             }
           }
 
           // 添加到结果列表
-          results.add(DrawingEntry(
-            number: number,
-            date: modifiedDate,
-            status: '已归档',
-            filePath: file.path,
-          ));
+          results.add(
+            DrawingEntry(
+              number: number,
+              date: modifiedDate,
+              status: '已归档',
+              filePath: file.path,
+            ),
+          );
 
-          debugPrint('  ✓ 找到匹配: $number (${modifiedDate.toString().substring(0, 19)})');
+          debugPrint(
+            '  ✓ 找到匹配: $number (${modifiedDate.toString().substring(0, 19)})',
+          );
         } catch (e) {
           debugPrint('  ✗ 处理文件失败: ${file.path}, 错误: $e');
           continue;
@@ -581,9 +779,10 @@ class DrawingService {
       debugPrint('  搜索完成，找到 ${results.length} 个匹配结果');
 
       // 4. 排序
-      results.sort((a, b) => ascending
-          ? a.date.compareTo(b.date)
-          : b.date.compareTo(a.date));
+      results.sort(
+        (a, b) =>
+            ascending ? a.date.compareTo(b.date) : b.date.compareTo(a.date),
+      );
 
       return results;
     } catch (e) {
@@ -591,7 +790,6 @@ class DrawingService {
       return [];
     }
   }
-
 }
 
 /// 图纸条目数据模型

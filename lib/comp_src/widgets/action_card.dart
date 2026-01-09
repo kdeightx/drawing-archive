@@ -9,12 +9,12 @@ import 'full_screen_image_viewer.dart';
 
 /// 编号项数据模型
 class NumberItem {
-  final String id;          // 唯一标识
-  final File image;         // 图片文件
-  final int index;          // 显示序号
-  String number;            // 编号值
-  bool hasAiNumber;         // 是否有AI识别的编号
-  bool recognitionFailed;   // 是否识别失败
+  final String id; // 唯一标识
+  final File image; // 图片文件
+  final int index; // 显示序号
+  String number; // 编号值
+  bool hasAiNumber; // 是否有AI识别的编号
+  bool recognitionFailed; // 是否识别失败
 
   NumberItem({
     required this.id,
@@ -30,36 +30,54 @@ class NumberItem {
 class ActionCard extends StatelessWidget {
   /// 相机按钮回调
   final VoidCallback onCameraTap;
+
   /// 相册按钮回调
   final VoidCallback onGalleryTap;
+
   /// 搜索按钮回调
   final VoidCallback onSearchTap;
+
   /// 编号项列表
   final List<NumberItem> numberItems;
+
   /// 当前页码
   final int currentPage;
+
   /// 总页数
   final int totalPages;
+
   /// 每页显示数量
   final int itemsPerPage;
+
   /// 编号变化回调
   final ValueChanged<int> onNumberChange;
+
   /// 删除图片回调
   final ValueChanged<int> onDeleteTap;
+
   /// 上一页回调
   final VoidCallback? onPreviousPage;
+
   /// 下一页回调
   final VoidCallback? onNextPage;
+
   /// 保存回调
   final VoidCallback onSave;
+
   /// 上传识别回调
   final VoidCallback? onUpload;
+
   /// 清空列表回调
   final VoidCallback? onClearAll;
+
   /// 是否正在保存
   final bool isSaving;
+
   /// 是否正在分析
   final bool isAnalyzing;
+
+  /// 编号输入控制器列表（从 ViewModel 传入）
+  final List<TextEditingController> numberControllers;
 
   const ActionCard({
     super.key,
@@ -69,14 +87,15 @@ class ActionCard extends StatelessWidget {
     required this.numberItems,
     required this.currentPage,
     required this.totalPages,
+    required this.numberControllers,
     this.itemsPerPage = 5,
     required this.onNumberChange,
     required this.onDeleteTap,
     this.onPreviousPage,
     this.onNextPage,
     required this.onSave,
-    this.onUpload,
-    this.onClearAll,
+    required this.onUpload,
+    required this.onClearAll,
     this.isSaving = false,
     this.isAnalyzing = false,
   });
@@ -139,7 +158,8 @@ class ActionCard extends StatelessWidget {
   }
 
   /// 操作按钮
-  Widget _buildActionButton(BuildContext context, {
+  Widget _buildActionButton(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
@@ -162,7 +182,9 @@ class ActionCard extends StatelessWidget {
             border: Border.all(
               color: isEnabled
                   ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
-                  : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
+                  : (isDark
+                        ? const Color(0xFF475569)
+                        : const Color(0xFFCBD5E1)),
               width: 1,
             ),
           ),
@@ -173,7 +195,9 @@ class ActionCard extends StatelessWidget {
                 icon,
                 color: isEnabled
                     ? Theme.of(context).colorScheme.primary
-                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                    : (isDark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8)),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -184,7 +208,9 @@ class ActionCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: isEnabled
                       ? Theme.of(context).colorScheme.primary
-                      : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                      : (isDark
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFF94A3B8)),
                 ),
               ),
             ],
@@ -233,7 +259,10 @@ class ActionCard extends StatelessWidget {
   Widget _buildNumberSection(BuildContext context, bool isDark) {
     // 计算当前页的编号列表
     final int startIndex = currentPage * itemsPerPage;
-    final int endIndex = (startIndex + itemsPerPage).clamp(0, numberItems.length);
+    final int endIndex = (startIndex + itemsPerPage).clamp(
+      0,
+      numberItems.length,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,22 +317,25 @@ class ActionCard extends StatelessWidget {
   }
 
   /// 编号区域标题行
-  Widget _buildNumberHeader(BuildContext context, int startIndex, int endIndex) {
+  Widget _buildNumberHeader(
+    BuildContext context,
+    int startIndex,
+    int endIndex,
+  ) {
     return Row(
       children: [
         const Icon(Icons.tag_outlined, size: 18),
         const SizedBox(width: 6),
-        Text(
-          '图纸编号',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('图纸编号', style: Theme.of(context).textTheme.titleMedium),
         const Spacer(),
         // 页码信息
         if (numberItems.length > itemsPerPage)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -336,7 +368,12 @@ class ActionCard extends StatelessWidget {
   }
 
   /// 单个编号输入项
-  Widget _buildNumberItem(BuildContext context, NumberItem item, bool isDark, bool isLast) {
+  Widget _buildNumberItem(
+    BuildContext context,
+    NumberItem item,
+    bool isDark,
+    bool isLast,
+  ) {
     final viewModel = context.read<DrawingScannerViewModel>();
 
     // 判断输入框和删除按钮是否应该启用：
@@ -361,7 +398,9 @@ class ActionCard extends StatelessWidget {
           // 删除按钮
           IconButton(
             icon: const Icon(Icons.close, size: 18),
-            onPressed: canDelete ? () => onDeleteTap(item.index) : null, // 上传识别流程中禁用
+            onPressed: canDelete
+                ? () => onDeleteTap(item.index)
+                : null, // 上传识别流程中禁用
             tooltip: '删除',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -381,7 +420,9 @@ class ActionCard extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFFE2E8F0),
                   width: isDark ? 1.5 : 1,
                 ),
               ),
@@ -395,7 +436,9 @@ class ActionCard extends StatelessWidget {
                       child: Icon(
                         Icons.broken_image,
                         size: 20,
-                        color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                        color: isDark
+                            ? const Color(0xFF475569)
+                            : const Color(0xFFCBD5E1),
                       ),
                     );
                   },
@@ -409,7 +452,9 @@ class ActionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -423,10 +468,12 @@ class ActionCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // 编号输入框
+          // 编号输入框 - 使用 ViewModel 管理的 controller
           Expanded(
             child: TextField(
-              controller: TextEditingController(text: item.number),
+              controller:
+                  viewModel.numberControllers[item
+                      .index], // 使用 ViewModel 的 controller，避免每次重建都创建新的
               enabled: isEnabled, // 上传识别流程中禁用
               onTapOutside: (_) {
                 // 点击输入框外部时取消焦点
@@ -436,30 +483,44 @@ class ActionCard extends StatelessWidget {
                 hintText: item.recognitionFailed ? '识别失败' : '输入图纸编号',
                 hintStyle: TextStyle(
                   fontSize: 14,
-                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  color: isDark
+                      ? const Color(0xFF64748B)
+                      : const Color(0xFF94A3B8),
                 ),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                    color: isDark
+                        ? const Color(0xFF475569)
+                        : const Color(0xFFE2E8F0),
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                    color: isDark
+                        ? const Color(0xFF475569)
+                        : const Color(0xFFE2E8F0),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
                 ),
                 disabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFF1F5F9),
                     width: 1,
                   ),
                 ),
@@ -467,8 +528,12 @@ class ActionCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 color: isEnabled
-                    ? (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B))
-                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                    ? (isDark
+                          ? const Color(0xFFE2E8F0)
+                          : const Color(0xFF1E293B))
+                    : (isDark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8)),
               ),
               onChanged: (value) {
                 item.number = value;
@@ -511,10 +576,16 @@ class ActionCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: BorderSide(
                   color: isPrevDisabled
-                      ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
-                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                      ? (isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0))
+                      : Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 backgroundColor: Colors.transparent,
               ),
               child: Text(
@@ -523,7 +594,9 @@ class ActionCard extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: isPrevDisabled
-                      ? (isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8))
+                      ? (isDark
+                            ? const Color(0xFF475569)
+                            : const Color(0xFF94A3B8))
                       : Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -537,10 +610,16 @@ class ActionCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: BorderSide(
                   color: isNextDisabled
-                      ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
-                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                      ? (isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0))
+                      : Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 backgroundColor: Colors.transparent,
               ),
               child: Text(
@@ -549,7 +628,9 @@ class ActionCard extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: isNextDisabled
-                      ? (isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8))
+                      ? (isDark
+                            ? const Color(0xFF475569)
+                            : const Color(0xFF94A3B8))
                       : Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -567,7 +648,9 @@ class ActionCard extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => FullScreenImageViewer(
-          imagePaths: viewModel.selectedImages.map((file) => file.path).toList(),
+          imagePaths: viewModel.selectedImages
+              .map((file) => file.path)
+              .toList(),
           imageTitles: viewModel.recognizedNumbers,
           initialIndex: index,
           enableRotation: true,

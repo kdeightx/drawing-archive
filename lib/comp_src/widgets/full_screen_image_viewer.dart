@@ -154,9 +154,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
           },
           // 使用 translucent 让滑动手势传递给 PageView
           behavior: HitTestBehavior.translucent,
-          child: SizedBox.expand(
-            child: _buildRotatedImage(index),
-          ),
+          child: SizedBox.expand(child: _buildRotatedImage(index)),
         );
       },
     );
@@ -165,7 +163,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   /// 处理双击事件
   void _handleDoubleTap(Offset globalFocalPoint) {
     // 获取 Transform 容器的渲染盒子
-    final RenderBox? renderBox = _transformKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _transformKey.currentContext?.findRenderObject() as RenderBox?;
 
     // 如果找不到渲染对象（通常不会发生），直接返回
     if (renderBox == null) return;
@@ -185,13 +184,17 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
   /// 动画缩放到指定比例
   void _animateToScale(double targetScale) {
-    _animation = Matrix4Tween(
-      begin: _transformationController.value,
-      end: Matrix4.identity()..scale(targetScale, targetScale, targetScale),
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _animation =
+        Matrix4Tween(
+          begin: _transformationController.value,
+          end: Matrix4.identity()
+            ..scale(targetScale), // 使用新版 API (scaleByDouble)
+        ).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
 
     _animationController.reset();
     _animationController.forward();
@@ -204,7 +207,11 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   /// 以指定位置为中心缩放（简化版，不使用 toScene）
   /// [localFocalPoint]: 点击点在组件局部坐标系中的位置
   /// [renderBox]: 用于计算中心点的相对位置
-  void _animateToScaleAtPoint(double targetScale, Offset localFocalPoint, RenderBox renderBox) {
+  void _animateToScaleAtPoint(
+    double targetScale,
+    Offset localFocalPoint,
+    RenderBox renderBox,
+  ) {
     // 获取当前变换矩阵
     final Matrix4 currentMatrix = _transformationController.value;
 
@@ -223,16 +230,12 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
     // 构建目标矩阵
     final Matrix4 endMatrix = Matrix4.identity()
       ..translate(translationX, translationY, 0.0)
-      ..scale(targetScale, targetScale, targetScale);
+      ..scale(targetScale); // 使用新版 API (scaleByDouble)
 
     // 开始动画
-    _animation = Matrix4Tween(
-      begin: currentMatrix,
-      end: endMatrix,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _animation = Matrix4Tween(begin: currentMatrix, end: endMatrix).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
     _animationController.reset();
     _animationController.forward();
@@ -273,7 +276,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
             // 1. 手势开始：记录"起跑线"
             onScaleStart: (details) {
               _initialFocalPoint = details.localFocalPoint; // 记录手指按下的位置（作为中心点）
-              _initialMatrix = _transformationController.value.clone(); // 记录图片当前的姿态
+              _initialMatrix = _transformationController.value
+                  .clone(); // 记录图片当前的姿态
             },
 
             // 2. 手势更新：实时计算变换
@@ -286,7 +290,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
               // 计算手指的移动向量（当前位置 - 起始位置）
               // 这实现了"拖动到屏幕中间查看"的功能
-              final Offset translationDelta = details.localFocalPoint - _initialFocalPoint!;
+              final Offset translationDelta =
+                  details.localFocalPoint - _initialFocalPoint!;
 
               final Offset focalPoint = _initialFocalPoint!; // 缩放/旋转的中心点（锚点）
 
@@ -305,7 +310,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
               // B.2 应用旋转和缩放
               matrix.rotateZ(rotation);
-              matrix.scale(scale, scale, scale);
+              matrix.scale(scale); // 使用新版 API (scaleByDouble)
 
               // B.3 将坐标原点恢复回去
               matrix.translate(-focalPoint.dx, -focalPoint.dy, 0.0);
@@ -321,7 +326,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
               // 可选：在这里添加回弹动画（checkBoundary）
               // 如果图片缩得太小，可以在这里让它弹回 1.0 倍
-              final currentScale = _transformationController.value.getMaxScaleOnAxis();
+              final currentScale = _transformationController.value
+                  .getMaxScaleOnAxis();
               if (currentScale < 1.0) {
                 _animateToScale(1.0);
               }
@@ -335,7 +341,11 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return const Center(
-                    child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
                   );
                 },
               ),

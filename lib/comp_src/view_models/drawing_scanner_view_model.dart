@@ -1,15 +1,14 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/drawing_service.dart';
 
 /// 进度状态枚举
 enum ProgressState {
-  sending,    // 发送数据中
-  scanning,   // AI扫描中
-  completed,  // 扫描完成
+  sending, // 发送数据中
+  scanning, // AI扫描中
+  completed, // 扫描完成
 }
 
 /// DrawingScanner 页面的 ViewModel
@@ -131,10 +130,21 @@ class DrawingScannerViewModel extends ChangeNotifier {
       }
 
       // 为新图片创建编号列表和控制器
-      final List<String> numbers = List.filled(tempImages.length, '', growable: true);
-      final List<TextEditingController> controllers =
-          List.generate(tempImages.length, (index) => TextEditingController(), growable: true);
-      final List<bool> recognitionFailed = List.filled(tempImages.length, false, growable: true); // 新图片未识别失败
+      final List<String> numbers = List.filled(
+        tempImages.length,
+        '',
+        growable: true,
+      );
+      final List<TextEditingController> controllers = List.generate(
+        tempImages.length,
+        (index) => TextEditingController(),
+        growable: true,
+      );
+      final List<bool> recognitionFailed = List.filled(
+        tempImages.length,
+        false,
+        growable: true,
+      ); // 新图片未识别失败
 
       // 插入到列表最前面
       _selectedImages.insertAll(0, tempImages);
@@ -151,6 +161,16 @@ class DrawingScannerViewModel extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// 注释：以下 _analyzeNewImages() 方法已于 Commit 2d1549c 中移除
+  ///
+  /// 移除原因：
+  /// - 原用于"自动识别新添加的图片"
+  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
+  /// - 改为手动控制，通过 uploadAndRecognizeAll() 方法
+  /// - 保留此注释便于理解设计演变
+  ///
+  /// 替代方案：使用 uploadAndRecognizeAll() 方法手动触发识别
 
   /// 上传并识别所有未识别的图片
   Future<void> uploadAndRecognizeAll() async {
@@ -196,7 +216,10 @@ class DrawingScannerViewModel extends ChangeNotifier {
       notifyListeners();
 
       try {
-        final String number = await drawingService.analyzeImage(_selectedImages[index], shouldCopy: false);
+        final String number = await drawingService.analyzeImage(
+          _selectedImages[index],
+          shouldCopy: false,
+        );
         _recognizedNumbers[index] = number;
         _numberControllers[index].text = number;
         _recognitionFailedList[index] = false; // 识别成功，清除失败标记
@@ -246,19 +269,15 @@ class DrawingScannerViewModel extends ChangeNotifier {
     }
   }
 
-  /// 清理当前选中的临时图片
+  /// 注释：以下 _clearCurrentTempImages() 方法已于 Commit 2d1549c 中移除
   ///
-  /// 在重新选择图片之前，删除上一轮未保存的临时文件
-  Future<void> _clearCurrentTempImages() async {
-    for (var image in _selectedImages) {
-      try {
-        await drawingService.deleteTempImage(image);
-      } catch (e) {
-        // 忽略删除失败的文件（可能已被手动删除）
-        debugPrint('清理临时文件失败: $e');
-      }
-    }
-  }
+  /// 移除原因：
+  /// - 原用于"再次选择图片时自动清理上一轮临时文件"
+  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
+  /// - 改为手动控制，通过 clearAllImages() 方法
+  /// - 保留此注释便于理解设计演变
+  ///
+  /// 替代方案：使用 clearAllImages() 方法手动清空所有图片
 
   /// 分析单张图片
   Future<void> analyzeImage() async {
@@ -278,7 +297,10 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
     try {
       final File currentImage = _selectedImages[_currentImageIndex];
-      final String number = await drawingService.analyzeImage(currentImage, shouldCopy: false);
+      final String number = await drawingService.analyzeImage(
+        currentImage,
+        shouldCopy: false,
+      );
 
       // 显示进度：完成
       _progressState = ProgressState.completed;
@@ -315,6 +337,16 @@ class DrawingScannerViewModel extends ChangeNotifier {
     }
   }
 
+  /// 注释：以下 _analyzeNewImages() 方法已于 Commit 2d1549c 中移除
+  ///
+  /// 移除原因：
+  /// - 原用于"自动识别新添加的图片"
+  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
+  /// - 改为手动控制，通过 uploadAndRecognizeAll() 方法
+  /// - 保留此注释便于理解设计演变
+  ///
+  /// 替代方案：使用 uploadAndRecognizeAll() 方法手动触发识别
+
   /// 批量分析所有图片
   Future<void> analyzeAllImages() async {
     if (_selectedImages.isEmpty) return;
@@ -330,7 +362,10 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
-        final String number = await drawingService.analyzeImage(_selectedImages[i], shouldCopy: false);
+        final String number = await drawingService.analyzeImage(
+          _selectedImages[i],
+          shouldCopy: false,
+        );
         _recognizedNumbers[i] = number;
         _numberControllers[i].text = number;
         notifyListeners();
@@ -367,66 +402,15 @@ class DrawingScannerViewModel extends ChangeNotifier {
     }
   }
 
-  /// 分析新添加的图片
+  /// 注释：以下 _analyzeNewImages() 方法已于 Commit 2d1549c 中移除
   ///
-  /// [startIndex] 新图片的起始索引
-  /// [count] 新图片的数量
-  Future<void> _analyzeNewImages(int startIndex, int count) async {
-    if (_selectedImages.isEmpty) return;
-
-    // 显示进度：发送数据
-    _progressState = ProgressState.sending;
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // 显示进度：AI扫描中
-    _progressState = ProgressState.scanning;
-    notifyListeners();
-
-    try {
-      // 只分析新添加的图片
-      for (int i = startIndex; i < startIndex + count; i++) {
-        _analyzingIndex = i; // 标记正在识别的图片
-        notifyListeners();
-
-        final String number = await drawingService.analyzeImage(_selectedImages[i], shouldCopy: false);
-        _recognizedNumbers[i] = number;
-        _numberControllers[i].text = number;
-        notifyListeners();
-      }
-
-      // 显示进度：完成
-      _progressState = ProgressState.completed;
-      _analyzingIndex = -1; // 清除正在识别的标记
-      notifyListeners();
-
-      // 3秒后恢复到非活跃状态
-      await Future.delayed(const Duration(seconds: 3));
-      _progressState = null;
-      _isAnalyzing = false;
-      notifyListeners();
-    } catch (e) {
-      _progressState = null;
-      _isAnalyzing = false;
-      _analyzingIndex = -1; // 清除正在识别的标记
-      notifyListeners();
-
-      // 检查是否是 AI API 相关错误
-      final errorMsg = e.toString();
-      if (errorMsg.contains('API Key 未配置') ||
-          errorMsg.contains('AI 识别失败') ||
-          errorMsg.contains('AI 识别超时') ||
-          errorMsg.contains('网络连接失败') ||
-          errorMsg.contains('网络') ||
-          errorMsg.contains('连接') ||
-          errorMsg.contains('超时')) {
-        _aiRecognitionFailed = true; // 标记 AI 识别失败
-        throw Exception('AI API 连接失败：$errorMsg');
-      }
-
-      rethrow;
-    }
-  }
+  /// 移除原因：
+  /// - 原用于"自动识别新添加的图片"
+  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
+  /// - 改为手动控制，通过 uploadAndRecognizeAll() 方法
+  /// - 保留此注释便于理解设计演变
+  ///
+  /// 替代方案：使用 uploadAndRecognizeAll() 方法手动触发识别
 
   /// 保存所有图片
   Future<int> saveAllImages() async {
@@ -448,7 +432,9 @@ class DrawingScannerViewModel extends ChangeNotifier {
       throw Exception('没有已识别的图片可保存，请先进行识别或手动填写编号');
     }
 
-    debugPrint('  找到 ${validIndexes.length} 张已识别的图片（共 ${_selectedImages.length} 张）');
+    debugPrint(
+      '  找到 ${validIndexes.length} 张已识别的图片（共 ${_selectedImages.length} 张）',
+    );
 
     _isSaving = true;
     notifyListeners();
@@ -460,7 +446,9 @@ class DrawingScannerViewModel extends ChangeNotifier {
       debugPrint('开始保存已识别的图片...');
       for (int index in validIndexes) {
         final number = _numberControllers[index].text.trim();
-        debugPrint('  [${successCount + 1}/${validIndexes.length}] 保存图片 ${index + 1}: $number');
+        debugPrint(
+          '  [${successCount + 1}/${validIndexes.length}] 保存图片 ${index + 1}: $number',
+        );
         await drawingService.saveEntry(_selectedImages[index], number);
         successCount++;
         debugPrint('    ✓ 保存成功');
@@ -500,7 +488,8 @@ class DrawingScannerViewModel extends ChangeNotifier {
       _currentImageIndex = _selectedImages.length - 1;
     }
 
-    if (_numberPage > 0 && (_numberPage * numbersPerPage) >= _selectedImages.length) {
+    if (_numberPage > 0 &&
+        (_numberPage * numbersPerPage) >= _selectedImages.length) {
       _numberPage--;
     }
 
@@ -569,7 +558,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
     _numberControllers = [];
     _recognitionFailedList = []; // 重置识别失败列表
     _numberPage = 0;
-    _currentRotation = 0;  // 重置旋转角度
+    _currentRotation = 0; // 重置旋转角度
     _isAnalyzing = false;
     _analyzingIndex = -1; // 重置正在识别的图片索引
     _isSaving = false;

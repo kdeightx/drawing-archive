@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -18,10 +16,7 @@ import 'drawing_settings_page.dart';
 class DrawingScannerPage extends StatelessWidget {
   final DrawingService drawingService;
 
-  const DrawingScannerPage({
-    super.key,
-    required this.drawingService,
-  });
+  const DrawingScannerPage({super.key, required this.drawingService});
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +81,10 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
   }
 
   /// 构建 AppBar
-  PreferredSizeWidget _buildAppBar(BuildContext context, AppLocalizations l10n) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AppBar(
@@ -101,7 +99,9 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const DrawingSettingsPage()),
+              MaterialPageRoute(
+                builder: (context) => const DrawingSettingsPage(),
+              ),
             );
           },
           tooltip: l10n.settingsTitle,
@@ -120,7 +120,11 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
   }
 
   /// 构建页面头部（进度卡片）
-  Widget _buildHeader(BuildContext context, AppLocalizations l10n, DrawingScannerViewModel viewModel) {
+  Widget _buildHeader(
+    BuildContext context,
+    AppLocalizations l10n,
+    DrawingScannerViewModel viewModel,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isIdle = viewModel.progressState == null;
 
@@ -150,9 +154,9 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
     final bgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
 
     // 各阶段状态球颜色
-    final sendingColor = const Color(0xFF3B82F6);    // 蓝色 - 发送中
-    final scanningColor = const Color(0xFFF59E0B);   // 橙色 - AI扫描中
-    final completedColor = const Color(0xFF10B981);  // 绿色 - 已完成
+    final sendingColor = const Color(0xFF3B82F6); // 蓝色 - 发送中
+    final scanningColor = const Color(0xFFF59E0B); // 橙色 - AI扫描中
+    final completedColor = const Color(0xFF10B981); // 绿色 - 已完成
 
     // 构建步骤数据
     final steps = [
@@ -201,7 +205,11 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
               children: [
                 // 左侧：状态文字
                 Text(
-                  isIdle ? '就绪' : (currentStep == 0 ? '发送中' : (currentStep == 1 ? 'AI扫描中' : '已完成')),
+                  isIdle
+                      ? '就绪'
+                      : (currentStep == 0
+                            ? '发送中'
+                            : (currentStep == 1 ? 'AI扫描中' : '已完成')),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -238,7 +246,10 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
   }
 
   /// 构建图片卡片
-  Widget _buildImageCard(BuildContext context, DrawingScannerViewModel viewModel) {
+  Widget _buildImageCard(
+    BuildContext context,
+    DrawingScannerViewModel viewModel,
+  ) {
     return ImageDisplayCard(
       images: viewModel.selectedImages,
       currentIndex: viewModel.currentImageIndex,
@@ -249,7 +260,11 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
   }
 
   /// 构建操作卡片
-  Widget _buildActionCard(BuildContext context, DrawingScannerViewModel viewModel, AppLocalizations l10n) {
+  Widget _buildActionCard(
+    BuildContext context,
+    DrawingScannerViewModel viewModel,
+    AppLocalizations l10n,
+  ) {
     // 构建 NumberItem 列表
     final numberItems = List.generate(viewModel.selectedImages.length, (index) {
       return NumberItem(
@@ -269,24 +284,23 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
           await viewModel.pickMultipleImages();
         } catch (e) {
           if (!context.mounted) return;
-          _showSnackBar(
-            context,
-            '${l10n.pickImageFailed}: $e',
-            isError: true,
-          );
+          _showSnackBar(context, '${l10n.pickImageFailed}: $e', isError: true);
         }
       },
       onSearchTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => DrawingSearchPage(
-            drawingService: viewModel.drawingService,
-          )),
+          MaterialPageRoute(
+            builder: (context) =>
+                DrawingSearchPage(drawingService: viewModel.drawingService),
+          ),
         );
       },
       numberItems: numberItems,
       currentPage: viewModel.numberPage,
       totalPages: viewModel.totalPages,
+      numberControllers:
+          viewModel.numberControllers, // 传入 ViewModel 管理的 controllers
       itemsPerPage: viewModel.numbersPerPage,
       onNumberChange: (index) {
         // 编号变化时更新控制器
@@ -364,7 +378,9 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFFCBD5E1),
                     width: isDark ? 2.0 : 1.5,
                   ),
                 ),
@@ -412,11 +428,14 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
                             child: SizedBox(
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: () => Navigator.of(context).pop(true),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFEF4444),
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                                 child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -425,7 +444,10 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
                                     SizedBox(width: 8),
                                     Text(
                                       '确认清空',
-                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -438,18 +460,28 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
                             child: SizedBox(
                               height: 48,
                               child: OutlinedButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  foregroundColor: isDark
+                                      ? const Color(0xFF94A3B8)
+                                      : const Color(0xFF64748B),
                                   side: BorderSide(
-                                    color: isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                                    color: isDark
+                                        ? const Color(0xFF475569)
+                                        : const Color(0xFFE2E8F0),
                                     width: 1.5,
                                   ),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                                 child: const Text(
                                   '取消',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
@@ -480,7 +512,9 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
   }
 
   /// 显示顶部通知
-  void _showSnackBar(BuildContext context, String message, {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
     required bool isError,
     bool isSuccess = false,
     Duration duration = const Duration(seconds: 2),
@@ -574,18 +608,12 @@ class _TopNotificationState extends State<_TopNotification>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.forward();
   }
