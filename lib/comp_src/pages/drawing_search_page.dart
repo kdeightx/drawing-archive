@@ -36,7 +36,9 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
     setState(() => _isLoading = true);
     try {
       final results = await widget.drawingService.searchDrawings(
-        keyword: _searchController.text.isNotEmpty ? _searchController.text : null,
+        keyword: _searchController.text.isNotEmpty
+            ? _searchController.text
+            : null,
         startDate: _startDate,
         endDate: _endDate,
         ascending: _isAscending,
@@ -85,7 +87,9 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.currentFeatureNotImplemented),
+          content: Text(
+            AppLocalizations.of(context)!.currentFeatureNotImplemented,
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -126,9 +130,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
       MaterialPageRoute(
         builder: (context) => FullScreenImageViewer(
           imagePaths: _results.map((e) => e.filePath).toList(),
-          imageTitles: _results.map((e) => e.number).toList(),
           initialIndex: index,
-          enableRotation: true, // 搜索结果也支持旋转
         ),
       ),
     );
@@ -205,13 +207,9 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
   Widget _buildFilterSection(AppLocalizations l10n) {
     return Row(
       children: [
-        Expanded(
-          child: _buildDateRangeButton(l10n),
-        ),
+        Expanded(child: _buildDateRangeButton(l10n)),
         const SizedBox(width: 10),
-        Expanded(
-          child: _buildOrderToggle(l10n),
-        ),
+        Expanded(child: _buildOrderToggle(l10n)),
       ],
     );
   }
@@ -310,18 +308,12 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
             const SizedBox(height: 8),
             Text(
               _getDateRangeText(),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 8),
             Text(
               l10n.totalResults(_results.length),
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF94A3B8),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 16),
             Row(
@@ -333,9 +325,7 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
                       _clearDateFilter();
                     },
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xFF94A3B8),
-                      ),
+                      side: const BorderSide(color: Color(0xFF94A3B8)),
                     ),
                     child: Text(l10n.clear),
                   ),
@@ -379,7 +369,9 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _isAscending ? Icons.arrow_upward_outlined : Icons.arrow_downward_outlined,
+              _isAscending
+                  ? Icons.arrow_upward_outlined
+                  : Icons.arrow_downward_outlined,
               color: Theme.of(context).colorScheme.primary,
               size: 18,
             ),
@@ -397,7 +389,6 @@ class _DrawingSearchPageState extends State<DrawingSearchPage> {
       ),
     );
   }
-
 }
 
 class _GridPainter extends CustomPainter {

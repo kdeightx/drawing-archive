@@ -158,15 +158,14 @@ class _MyPageState extends State<MyPage> {
 
 // 全屏预览功能：
 // - 支持多图滑动切换
-// - 支持双击缩放
-// - 支持双指旋转
-// - 支持手势拖动
+// - 支持双击缩放（以点击位置为中心放大到 2.5x 或还原）
+// - 支持双指缩放（从 0.01x 到无限大）
+// - 支持手势拖动（缩放后无边界自由拖动）
 // - 沉浸式交互（单击隐藏/显示 UI）
-// - 启用旋转功能（enableRotation: true）
+// - 智能手势路由（缩放前滑动翻页，缩放后锁定翻页）
 
 // 预览数据来源：
 // - imagePaths: 从 ViewModel 的 selectedImages 获取
-// - imageTitles: 从 ViewModel 的 recognizedNumbers 获取
 // - initialIndex: 点击的缩略图索引
 ```
 
@@ -184,9 +183,7 @@ void _showFullScreenPreview(BuildContext context, int index) {
     MaterialPageRoute(
       builder: (context) => FullScreenImageViewer(
         imagePaths: viewModel.selectedImages.map((file) => file.path).toList(),
-        imageTitles: viewModel.recognizedNumbers,
         initialIndex: index,
-        enableRotation: true,
       ),
     ),
   );

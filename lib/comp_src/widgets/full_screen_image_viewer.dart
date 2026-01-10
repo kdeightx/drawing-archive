@@ -1,30 +1,29 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:extended_image/extended_image.dart';
 
-/// 全屏图片预览组件
+/// 全屏图片预览组件（使用 InteractiveViewer 实现无边界缩放）
 ///
-/// 支持多图查看、缩放、旋转、滑动切换、双击放大
-/// 独立组件，不依赖 ViewModel，通过构造函数参数传递数据
+/// 提供系统相册级体验的图片预览功能：
+/// - 全屏预览（黑色背景）
+/// - 多图浏览（左右滑动切换）
+/// - 手势缩放（双指/双击，以点击位置为中心）
+/// - 无边界拖动（缩放后可自由拖动，不受边界限制）
+/// - 沉浸式交互（单击隐藏/显示 UI）
+/// - 智能交互（缩放前滑动翻页，缩放后锁定翻页）
 class FullScreenImageViewer extends StatefulWidget {
   /// 图片文件路径列表
   final List<String> imagePaths;
 
-  /// 图片标题列表（可选，用于显示在顶部）
-  final List<String>? imageTitles;
-
   /// 初始显示的图片索引
   final int initialIndex;
-
-  /// 是否启用旋转功能（默认 true）
-  final bool enableRotation;
 
   const FullScreenImageViewer({
     super.key,
     required this.imagePaths,
-    this.imageTitles,
     this.initialIndex = 0,
-    this.enableRotation = true,
   });
 
   @override
@@ -32,69 +31,67 @@ class FullScreenImageViewer extends StatefulWidget {
 }
 
 class _FullScreenImageViewerState extends State<FullScreenImageViewer>
-    with TickerProviderStateMixin {
-  /// TransformationController 用于缩放和平移
-  late TransformationController _transformationController;
-
-  /// PageController 用于图片滑动切换
+    with SingleTickerProviderStateMixin {
   late PageController _pageController;
-
-  /// 动画控制器
-  late AnimationController _animationController;
-
-  /// 动画
-  Animation<Matrix4>? _animation;
-
-  /// Transform 容器的 GlobalKey，用于双击时的坐标转换
-  final GlobalKey _transformKey = GlobalKey();
-
-  /// 当前旋转角度（0, 90, 180, 270）
-  int _currentRotation = 0;
-
-  /// 手势初始状态
-  Offset? _initialFocalPoint;
-  Matrix4? _initialMatrix;
-
-  /// 控制 UI 是否显示（用于沉浸式交互）
+  int _currentIndex = 0;
   bool _showControls = true;
 
-  /// 当前页面索引（本地状态，避免在 PageView 构建前访问 PageController.page）
-  int _currentIndex = 0;
+  /// 是否允许 PageView 翻页
+  /// 当任意图片缩放 > 1.01 时，锁定 PageView
+  bool _enablePageScroll = true;
 
-  /// 判断是否应该允许页面滑动（当缩放比例 > 1.0 时禁止滑动）
-  bool get _allowPageScroll {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    return scale <= 1.01; // 允许小的浮点误差
-  }
+  late AnimationController _animationController;
+  late Animation<double> _opacityAnimation;
 
   @override
   void initState() {
     super.initState();
-    // 进入页面时，强制将状态栏文字设为白色（因为背景是黑色）
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-
-    _transformationController = TransformationController();
     _pageController = PageController(initialPage: widget.initialIndex);
-    _currentIndex = widget.initialIndex; // 初始化当前索引
+    _currentIndex = widget.initialIndex;
+
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
       vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
-    _transformationController.addListener(() {
-      setState(() {});
-    });
+    if (_showControls) _animationController.forward();
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
   }
 
   @override
   void dispose() {
-    // 退出页面时，恢复原来的状态栏样式
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-
-    _transformationController.dispose();
     _pageController.dispose();
     _animationController.dispose();
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     super.dispose();
+  }
+
+  /// 切换 UI 显示/隐藏状态
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+      if (_showControls) {
+        _animationController.forward();
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        _animationController.reverse();
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+      }
+    });
+  }
+
+  /// 子组件通知父组件：缩放状态改变了
+  /// isZoomed: true 表示正在放大，需要锁死翻页；false 表示恢复原状，允许翻页
+  void _onZoomStatusChanged(bool isZoomed) {
+    // 只有状态真正改变时才 setState，优化性能
+    if (_enablePageScroll == isZoomed) {
+      setState(() {
+        _enablePageScroll = !isZoomed;
+      });
+    }
   }
 
   @override
@@ -103,16 +100,18 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          _buildImageContent(),
-          _buildTopAppBar(),
+          Positioned.fill(
+            child: _buildImageGallery(),
+          ),
+          _buildTopBar(),
           _buildBottomIndicator(),
         ],
       ),
     );
   }
 
-  /// 构建图片内容区域
-  Widget _buildImageContent() {
+  /// 构建图片画廊（使用 PageView）
+  Widget _buildImageGallery() {
     if (widget.imagePaths.isEmpty) {
       return const Center(
         child: Text(
@@ -124,255 +123,37 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
     return PageView.builder(
       controller: _pageController,
+      // 【核心逻辑】根据缩放状态动态切换物理效果
+      // 放大时：NeverScrollable (锁死)
+      // 正常时：Bouncing (允许翻页)
+      physics: _enablePageScroll
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
       itemCount: widget.imagePaths.length,
-      physics: _allowPageScroll
-          ? const AlwaysScrollableScrollPhysics()
-          : const NeverScrollableScrollPhysics(), // 缩放时禁止滑动切换
-      onPageChanged: (index) {
-        setState(() {
-          _currentIndex = index; // 更新当前索引
-          _currentRotation = 0; // 页面切换时重置旋转
-        });
-      },
+      onPageChanged: (index) => setState(() => _currentIndex = index),
       itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            // 单击切换 UI 显示/隐藏（沉浸式交互）
-            setState(() {
-              _showControls = !_showControls;
-            });
-            // 配合系统沉浸式模式（隐藏/显示顶部状态栏）
-            if (_showControls) {
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-            } else {
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-            }
-          },
-          onDoubleTapDown: (details) {
-            // 双击放大/缩小（传递屏幕绝对坐标）
-            _handleDoubleTap(details.globalPosition);
-          },
-          // 使用 translucent 让滑动手势传递给 PageView
-          behavior: HitTestBehavior.translucent,
-          child: SizedBox.expand(child: _buildRotatedImage(index)),
+        return _ZoomableImageItem(
+          imagePath: widget.imagePaths[index],
+          onTap: _toggleControls,
+          onZoomStatusChanged: _onZoomStatusChanged,
         );
       },
     );
   }
 
-  /// 处理双击事件
-  void _handleDoubleTap(Offset globalFocalPoint) {
-    // 获取 Transform 容器的渲染盒子
-    final RenderBox? renderBox =
-        _transformKey.currentContext?.findRenderObject() as RenderBox?;
-
-    // 如果找不到渲染对象（通常不会发生），直接返回
-    if (renderBox == null) return;
-
-    // A. 关键步骤：将屏幕绝对坐标(Global)转换为组件局部坐标(Local)
-    // 这一步会自动处理所有的旋转、平移带来的坐标系变化
-    final Offset localFocalPoint = renderBox.globalToLocal(globalFocalPoint);
-
-    final currentScale = _transformationController.value.getMaxScaleOnAxis();
-    if (currentScale > 1.0) {
-      _animateToScale(1.0);
-    } else {
-      // 传入转换后的局部坐标
-      _animateToScaleAtPoint(2.0, localFocalPoint, renderBox);
-    }
-  }
-
-  /// 动画缩放到指定比例
-  void _animateToScale(double targetScale) {
-    _animation =
-        Matrix4Tween(
-          begin: _transformationController.value,
-          end: Matrix4.identity()
-            ..scale(targetScale), // 使用新版 API (scaleByDouble)
-        ).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeInOut,
-          ),
-        );
-
-    _animationController.reset();
-    _animationController.forward();
-
-    _animation!.addListener(() {
-      _transformationController.value = _animation!.value;
-    });
-  }
-
-  /// 以指定位置为中心缩放（简化版，不使用 toScene）
-  /// [localFocalPoint]: 点击点在组件局部坐标系中的位置
-  /// [renderBox]: 用于计算中心点的相对位置
-  void _animateToScaleAtPoint(
-    double targetScale,
-    Offset localFocalPoint,
-    RenderBox renderBox,
-  ) {
-    // 获取当前变换矩阵
-    final Matrix4 currentMatrix = _transformationController.value;
-
-    // 计算视图中心的局部坐标
-    final Offset viewportCenter = renderBox.size.center(Offset.zero);
-
-    // 计算缩放前点击点相对于中心的偏移
-    final Offset offsetFromCenter = localFocalPoint - viewportCenter;
-
-    // 计算平移量
-    // 公式：让点击点在缩放后移动到屏幕中心
-    // Translation = -Offset * (Scale - 1)
-    final double translationX = -offsetFromCenter.dx * (targetScale - 1);
-    final double translationY = -offsetFromCenter.dy * (targetScale - 1);
-
-    // 构建目标矩阵
-    final Matrix4 endMatrix = Matrix4.identity()
-      ..translate(translationX, translationY, 0.0)
-      ..scale(targetScale); // 使用新版 API (scaleByDouble)
-
-    // 开始动画
-    _animation = Matrix4Tween(begin: currentMatrix, end: endMatrix).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _animationController.reset();
-    _animationController.forward();
-
-    _animation!.addListener(() {
-      _transformationController.value = _animation!.value;
-    });
-  }
-
-  /// 构建可旋转、缩放、移动的图片（支持双指旋转 + 定点缩放）
-  Widget _buildRotatedImage(int index) {
-    final size = MediaQuery.of(context).size;
-    final isRotated = _currentRotation == 90 || _currentRotation == 270;
-
-    return Center(
-      child: RotatedBox(
-        quarterTurns: _currentRotation ~/ 90,
-        child: SizedBox(
-          width: isRotated ? size.height : size.width,
-          height: isRotated ? size.width : size.height,
-          child: _buildGestureImage(index),
-        ),
-      ),
-    );
-  }
-
-  /// 构建带手势的图片（双指缩放+旋转+移动）
-  Widget _buildGestureImage(int index) {
-    return Container(
-      key: index == _currentIndex ? _transformKey : null, // 只在当前页绑定 key
-      child: AnimatedBuilder(
-        animation: _transformationController,
-        builder: (context, child) {
-          return GestureDetector(
-            // 关键：确保点击空白处也能响应手势
-            behavior: HitTestBehavior.translucent,
-
-            // 1. 手势开始：记录"起跑线"
-            onScaleStart: (details) {
-              _initialFocalPoint = details.localFocalPoint; // 记录手指按下的位置（作为中心点）
-              _initialMatrix = _transformationController.value
-                  .clone(); // 记录图片当前的姿态
-            },
-
-            // 2. 手势更新：实时计算变换
-            onScaleUpdate: (details) {
-              if (_initialFocalPoint == null || _initialMatrix == null) return;
-
-              // --- 准备数据 ---
-              final double scale = details.scale;
-              final double rotation = details.rotation;
-
-              // 计算手指的移动向量（当前位置 - 起始位置）
-              // 这实现了"拖动到屏幕中间查看"的功能
-              final Offset translationDelta =
-                  details.localFocalPoint - _initialFocalPoint!;
-
-              final Offset focalPoint = _initialFocalPoint!; // 缩放/旋转的中心点（锚点）
-
-              // --- 矩阵计算 ---
-              final Matrix4 matrix = _initialMatrix!.clone();
-
-              // 步骤 A: 平移
-              // 先让图片跟随手指移动
-              matrix.translate(translationDelta.dx, translationDelta.dy, 0.0);
-
-              // 步骤 B: 定点缩放与旋转 (Focal Zoom & Rotate)
-              // 逻辑三明治：移到锚点 -> 变换 -> 移回锚点
-
-              // B.1 将坐标原点移动到手指按下的位置
-              matrix.translate(focalPoint.dx, focalPoint.dy, 0.0);
-
-              // B.2 应用旋转和缩放
-              matrix.rotateZ(rotation);
-              matrix.scale(scale); // 使用新版 API (scaleByDouble)
-
-              // B.3 将坐标原点恢复回去
-              matrix.translate(-focalPoint.dx, -focalPoint.dy, 0.0);
-
-              // --- 应用最终结果 ---
-              _transformationController.value = matrix;
-            },
-
-            // 3. 手势结束
-            onScaleEnd: (details) {
-              _initialFocalPoint = null;
-              _initialMatrix = null;
-
-              // 可选：在这里添加回弹动画（checkBoundary）
-              // 如果图片缩得太小，可以在这里让它弹回 1.0 倍
-              final currentScale = _transformationController.value
-                  .getMaxScaleOnAxis();
-              if (currentScale < 1.0) {
-                _animateToScale(1.0);
-              }
-            },
-
-            child: Transform(
-              transform: _transformationController.value,
-              alignment: Alignment.center, // 矩阵已经处理了对齐，这里默认即可
-              child: Image.file(
-                File(widget.imagePaths[index]),
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: Colors.white54,
-                      size: 48,
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// 构建顶部操作栏
-  Widget _buildTopAppBar() {
+  /// 构建顶部工具栏
+  Widget _buildTopBar() {
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
-      child: AnimatedOpacity(
-        // 关键：根据 _showControls 控制透明度
-        opacity: _showControls ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
-        // 如果隐藏了，就忽略点击事件，防止误触
+      child: FadeTransition(
+        opacity: _opacityAnimation,
         child: IgnorePointer(
           ignoring: !_showControls,
           child: Container(
-            // 去掉 SafeArea，改用 Padding，这样渐变色能铺满顶部
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 8, // 适配刘海屏
+              top: MediaQuery.of(context).padding.top + 8,
               bottom: 12,
               left: 8,
               right: 8,
@@ -382,57 +163,27 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.8), // 顶部深色
+                  Colors.black.withValues(alpha: 0.8),
                   Colors.transparent,
                 ],
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween, // 两端对齐
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 1. 新增：返回按钮
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: '返回',
                 ),
-
-                // 中间的信息和旋转按钮
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.rotate_left, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _currentRotation = (_currentRotation - 90) % 360;
-                        });
-                      },
-                      tooltip: '逆时针旋转',
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_currentIndex + 1}/${widget.imagePaths.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.rotate_right, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _currentRotation = (_currentRotation + 90) % 360;
-                        });
-                      },
-                      tooltip: '顺时针旋转',
-                    ),
-                  ],
+                Text(
+                  '${_currentIndex + 1}/${widget.imagePaths.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-
-                // 右侧占位（为了让中间内容居中）或者放其他功能按钮
                 const SizedBox(width: 48),
               ],
             ),
@@ -444,52 +195,191 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
 
   /// 构建底部指示器
   Widget _buildBottomIndicator() {
-    if (widget.imagePaths.length <= 1) {
-      return const SizedBox.shrink();
-    }
-
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
-      child: AnimatedOpacity(
-        opacity: _showControls ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
+      child: FadeTransition(
+        opacity: _opacityAnimation,
         child: IgnorePointer(
           ignoring: !_showControls,
-          child: SafeArea(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.8),
-                    Colors.black.withValues(alpha: 0.0),
-                  ],
-                ),
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              top: 12,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.6),
+                  Colors.transparent,
+                ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  widget.imagePaths.length,
-                  (index) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _currentIndex == index ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _currentIndex == index
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+            ),
+            child: Center(
+              child: Text(
+                _enablePageScroll ? '左右滑动查看图片' : '双指缩放 · 拖动查看',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 可缩放的图片项组件
+///
+/// 使用 InteractiveViewer 实现无边界拖动和缩放
+class _ZoomableImageItem extends StatefulWidget {
+  final String imagePath;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onZoomStatusChanged;
+
+  const _ZoomableImageItem({
+    required this.imagePath,
+    required this.onTap,
+    required this.onZoomStatusChanged,
+  });
+
+  @override
+  State<_ZoomableImageItem> createState() => _ZoomableImageItemState();
+}
+
+class _ZoomableImageItemState extends State<_ZoomableImageItem>
+    with SingleTickerProviderStateMixin {
+  final TransformationController _transformController = TransformationController();
+  late AnimationController _doubleTapAnimationController;
+  Animation<Matrix4>? _doubleTapAnimation;
+
+  TapDownDetails? _doubleTapDetails;
+  Timer? _singleTapTimer;
+  bool _isZoomed = false;
+
+  /// 双击缩放的目标比例
+  static const double _doubleTapScale = 2.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _doubleTapAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    // 监听缩放变化
+    _transformController.addListener(_onTransformationChange);
+  }
+
+  @override
+  void dispose() {
+    _transformController.removeListener(_onTransformationChange);
+    _transformController.dispose();
+    _doubleTapAnimationController.dispose();
+    _singleTapTimer?.cancel();
+    super.dispose();
+  }
+
+  /// 监听变换矩阵变化
+  void _onTransformationChange() {
+    final double scale = _transformController.value.getMaxScaleOnAxis();
+    // 设置一个容差范围：scale < 0.99 或 scale > 1.01 都认为是缩放状态
+    // 这样既能检测放大，也能检测缩小
+    final bool isZoomedNow = scale < 0.99 || scale > 1.01;
+
+    if (_isZoomed != isZoomedNow) {
+      setState(() {
+        _isZoomed = isZoomedNow;
+      });
+      // 通知父组件更新 PageView 的物理锁
+      widget.onZoomStatusChanged(isZoomedNow);
+    }
+  }
+
+  /// 处理双击事件
+  void _handleDoubleTap() {
+    if (_doubleTapAnimationController.isAnimating) return;
+
+    final double currentScale = _transformController.value.getMaxScaleOnAxis();
+    final Offset tapPosition = _doubleTapDetails!.localPosition;
+
+    Matrix4 endMatrix;
+    // 如果不在 1.0 的容差范围内（即已放大或已缩小），还原到 1.0
+    if (currentScale < 0.99 || currentScale > 1.01) {
+      endMatrix = Matrix4.identity();
+    } else {
+      // 如果是 1.0 状态，放大到 2.5 倍
+      // 计算偏移量，使点击点处于屏幕中心
+      // 算法：Translate(-pos * (scale - 1)) -> Scale(s)
+      final double targetScale = _doubleTapScale;
+      final double dx = -tapPosition.dx * (targetScale - 1);
+      final double dy = -tapPosition.dy * (targetScale - 1);
+
+      endMatrix = Matrix4.identity()
+        ..translate(dx, dy)
+        ..scale(targetScale);
+    }
+
+    // 启动动画
+    _doubleTapAnimation = Matrix4Tween(
+      begin: _transformController.value,
+      end: endMatrix,
+    ).animate(CurvedAnimation(
+      parent: _doubleTapAnimationController,
+      curve: Curves.fastOutSlowIn,
+    ));
+
+    _doubleTapAnimation!.addListener(() {
+      _transformController.value = _doubleTapAnimation!.value;
+    });
+
+    _doubleTapAnimationController.forward(from: 0);
+  }
+
+  /// 处理单击（防抖）
+  void _handleSingleTap() {
+    _singleTapTimer?.cancel();
+    _singleTapTimer = Timer(const Duration(milliseconds: 200), () {
+      widget.onTap();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onDoubleTapDown: (d) => _doubleTapDetails = d,
+      onDoubleTap: _handleDoubleTap,
+      onTap: _handleSingleTap,
+      behavior: HitTestBehavior.translucent,
+      child: InteractiveViewer(
+        transformationController: _transformController,
+
+        // 允许缩小到很小 (0.01)
+        minScale: 0.01,
+        // 允许无限放大
+        maxScale: double.infinity,
+
+        // 始终允许无限边界，确保在 1.0 时也能直接捏合缩小
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+
+        // 只有在缩放状态下才响应平移 (Pan)
+        // 1.0 时 Pan 被禁用，手势穿透给 PageView 用于翻页
+        panEnabled: _isZoomed,
+
+        // 始终允许缩放
+        scaleEnabled: true,
+
+        child: ExtendedImage.file(
+          File(widget.imagePath),
+          fit: BoxFit.contain,
+          mode: ExtendedImageMode.none,
+          enableLoadState: true,
         ),
       ),
     );

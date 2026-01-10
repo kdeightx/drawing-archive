@@ -21,7 +21,7 @@
 | ActionButtons | lib/comp_src/widgets/action_buttons_guide.md | 操作按钮组件，显示清空、上传识别、保存三个按钮 |
 | SearchInputCard | lib/comp_src/widgets/search_input_card_guide.md | 搜索输入框组件，支持关键词输入和搜索触发 |
 | SearchResultsList | lib/comp_src/widgets/search_results_list_guide.md | 搜索结果列表组件，展示搜索结果和分页控制 |
-| FullScreenImageViewer | lib/comp_src/widgets/full_screen_image_viewer_guide.md | 全屏图片预览组件，支持多图查看、手势缩放、旋转和沉浸式交互 |
+| FullScreenImageViewer | lib/comp_src/widgets/full_screen_image_viewer_guide.md | 全屏图片预览组件（使用 InteractiveViewer，支持多图查看、无限缩放、无边界拖动和智能手势路由） |
 
 ## 服务组件
 

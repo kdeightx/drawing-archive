@@ -125,9 +125,7 @@ void _handleResultTap(int index) {
     MaterialPageRoute(
       builder: (context) => FullScreenImageViewer(
         imagePaths: _results.map((e) => e.filePath).toList(),
-        imageTitles: _results.map((e) => e.number).toList(),
         initialIndex: index,
-        enableRotation: true, // 搜索结果也支持旋转
       ),
     ),
   );
@@ -217,8 +215,10 @@ void _clearDateFilter() {
 点击搜索结果卡片会打开全屏图片查看器（`FullScreenImageViewer`）：
 - 验证文件存在性
 - 支持多图滑动切换
-- 显示图纸编号作为标题
-- **启用旋转功能**（搜索结果也支持旋转查看）
+- 支持双击缩放（以点击位置为中心放大到 2.5x 或还原）
+- 支持双指缩放（从 0.01x 到无限大）
+- 支持手势拖动（缩放后无边界自由拖动）
+- 智能手势路由（缩放前滑动翻页，缩放后锁定翻页）
 
 ### 边框样式增强
 

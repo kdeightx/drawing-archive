@@ -2,18 +2,17 @@
 
 ## 组件职责
 
-`FullScreenImageViewer` 是全屏图片预览组件，提供专业级的图片查看体验：
+`FullScreenImageViewer` 是全屏图片预览组件，使用 Flutter 内置的 `InteractiveViewer` 实现系统相册级的图片查看体验：
 
 - **全屏预览**：黑色背景的全屏图片查看器
-- **多图浏览**：支持左右滑动切换图片
+- **多图浏览**：使用 PageView 支持左右滑动切换图片
 - **手势缩放**：双指缩放，以手指位置为中心
-- **手势旋转**：双指自由旋转图片
-- **手势拖动**：双指拖动查看图片不同区域
-- **双击放大**：双击以点击位置为中心放大到 2 倍，再次双击恢复
-- **按钮旋转**：顶部操作栏支持 90 度增量旋转
+- **双击缩放**：双击任意位置放大/还原（以点击位置为中心）
+- **无边界拖动**：缩放后支持无边界自由拖拽
 - **沉浸式交互**：单击屏幕隐藏/显示 UI 和状态栏
-- **智能切换**：缩放时自动禁用滑动切换，防止误操作
-- **完全独立**：不依赖 ViewModel，通过构造函数参数传递数据
+- **智能手势路由**：缩放前滑动翻页，缩放后锁定翻页、自由拖动
+- **无限缩放**：支持从 0.01x 到无限大的缩放范围
+- **空列表保护**：处理空图片列表，显示友好提示
 
 ---
 
@@ -32,9 +31,7 @@ lib/comp_src/widgets/full_screen_image_viewer.dart
 | 参数 | 类型 | 必需 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `imagePaths` | `List<String>` | 是 | - | 图片文件路径列表 |
-| `imageTitles` | `List<String>?` | 否 | null | 图片标题列表（可选，用于显示在顶部） |
 | `initialIndex` | `int` | 否 | 0 | 初始显示的图片索引 |
-| `enableRotation` | `bool` | 否 | true | 是否启用旋转功能 |
 
 ### 输出（行为/副作用）
 
@@ -43,10 +40,10 @@ lib/comp_src/widgets/full_screen_image_viewer.dart
 | 显示全屏预览 | 打开全屏黑色背景的图片查看器 |
 | 单击切换 UI | 单击屏幕隐藏/显示顶部和底部操作栏 |
 | 返回上一页 | 点击左上角返回按钮关闭预览 |
-| 旋转图片 | 点击旋转按钮或使用双指旋转手势（如果启用） |
-| 缩放图片 | 双击放大或使用双指缩放手势 |
-| 切换图片 | 左右滑动切换到上一张/下一张图片 |
-| 拖动图片 | 双指拖动查看图片不同区域 |
+| 双击缩放 | 双击任意位置放大到 2.5x 或还原到 1.0x |
+| 双指缩放 | 双指捏合缩放，支持从 0.01x 到无限大 |
+| 拖动图片 | 缩放状态下无边界自由拖动 |
+| 切换图片 | 未缩放时左右滑动切换上一张/下一张 |
 
 ---
 
@@ -58,11 +55,12 @@ lib/comp_src/widgets/full_screen_image_viewer.dart
 dependencies:
   flutter:
     sdk: flutter
+  extended_image: ^8.2.1  # 仅用于图片加载，不处理手势
 ```
 
 ### 内部依赖
 
-无（完全独立组件）
+无（极简架构，所有逻辑在单文件内）
 
 ---
 
@@ -72,16 +70,138 @@ dependencies:
 
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `_transformationController` | `TransformationController` | 控制图片的缩放和平移变换 |
-| `_pageController` | `PageController` | 控制图片左右滑动切换 |
-| `_animationController` | `AnimationController` | 控制缩放动画 |
-| `_animation` | `Animation<Matrix4>?` | 存储矩阵动画实例 |
-| `_transformKey` | `GlobalKey` | 用于双击时的坐标转换 |
-| `_currentRotation` | `int` | 当前旋转角度（0, 90, 180, 270） |
-| `_currentIndex` | `int` | 当前页面索引（本地状态） |
-| `_initialFocalPoint` | `Offset?` | 手势开始时的焦点位置 |
-| `_initialMatrix` | `Matrix4?` | 手势开始时的变换矩阵 |
+| `_pageController` | `PageController` | 控制 PageView 图片左右滑动 |
+| `_currentIndex` | `int` | 当前页面索引（用于显示页码） |
 | `_showControls` | `bool` | 控制 UI 是否显示（沉浸式交互） |
+| `_enablePageScroll` | `bool` | 控制 PageView 是否可翻页（缩放时锁定） |
+
+### 子组件状态变量（_ZoomableImageItem）
+
+| 变量 | 类型 | 说明 |
+|------|------|------|
+| `_transformController` | `TransformationController` | 控制 InteractiveViewer 的变换矩阵 |
+| `_isZoomed` | `bool` | 当前是否处于缩放状态 |
+| `_doubleTapDetails` | `TapDownDetails?` | 双击位置信息 |
+| `_singleTapTimer` | `Timer?` | 单击防抖定时器 |
+
+---
+
+## 核心实现
+
+### 1. 动态物理控制（第 126-131 行）
+
+**核心逻辑**：根据缩放状态动态切换 PageView 的物理特性
+
+```dart
+physics: _enablePageScroll
+    ? const BouncingScrollPhysics()
+    : const NeverScrollableScrollPhysics(),
+```
+
+- **未缩放时** (`_enablePageScroll = true`)：使用 `BouncingScrollPhysics`，允许翻页
+- **缩放时** (`_enablePageScroll = false`)：使用 `NeverScrollableScrollPhysics`，锁定翻页
+
+### 2. 缩放状态检测（第 289-303 行）
+
+**双状态检测**：同时检测放大和缩小状态
+
+```dart
+void _onTransformationChange() {
+  final double scale = _transformController.value.getMaxScaleOnAxis();
+  // 设置容差范围：scale < 0.99 或 scale > 1.01 都认为是缩放状态
+  final bool isZoomedNow = scale < 0.99 || scale > 1.01;
+
+  if (_isZoomed != isZoomedNow) {
+    setState(() {
+      _isZoomed = isZoomedNow;
+    });
+    // 通知父组件更新 PageView 的物理锁
+    widget.onZoomStatusChanged(isZoomedNow);
+  }
+}
+```
+
+### 3. 全状态双击归位（第 305-343 行）
+
+**智能归位**：从任意缩放状态（放大或缩小）双击都能还原到 1.0x
+
+```dart
+void _handleDoubleTap() {
+  final double currentScale = _transformController.value.getMaxScaleOnAxis();
+  final Offset tapPosition = _doubleTapDetails!.localPosition;
+
+  Matrix4 endMatrix;
+  // 如果不在 1.0 的容差范围内（即已放大或已缩小），还原到 1.0
+  if (currentScale < 0.99 || currentScale > 1.01) {
+    endMatrix = Matrix4.identity();
+  } else {
+    // 如果是 1.0 状态，放大到 2.5 倍（以点击位置为中心）
+    final double targetScale = _doubleTapScale;
+    final double dx = -tapPosition.dx * (targetScale - 1);
+    final double dy = -tapPosition.dy * (targetScale - 1);
+
+    endMatrix = Matrix4.identity()
+      ..translate(dx, dy)
+      ..scale(targetScale);
+  }
+  // ... 启动动画
+}
+```
+
+### 4. InteractiveViewer 配置（第 360-376 行）
+
+**手势路由控制**：通过 `panEnabled` 控制手势路由
+
+```dart
+InteractiveViewer(
+  transformationController: _transformController,
+  minScale: 0.01,           // 允许缩小到很小
+  maxScale: double.infinity, // 允许无限放大
+  boundaryMargin: const EdgeInsets.all(double.infinity), // 始终无限边界
+  panEnabled: _isZoomed,     // 只有缩放时才响应平移
+  scaleEnabled: true,        // 始终允许缩放
+  child: ExtendedImage.file(
+    File(widget.imagePath),
+    fit: BoxFit.contain,
+    mode: ExtendedImageMode.none,  // 禁用 extended_image 的手势
+    enableLoadState: true,
+  ),
+)
+```
+
+**手势路由逻辑**：
+- **1.0x 时**：`panEnabled = false` → InteractiveViewer 不处理平移 → 手势穿透给 PageView → 翻页
+- **缩放时**：`panEnabled = true` → InteractiveViewer 处理平移 → 自由拖动 → PageView 锁定
+
+### 5. 空列表保护（第 115-122 行）
+
+```dart
+if (widget.imagePaths.isEmpty) {
+  return const Center(
+    child: Text(
+      '暂无图片',
+      style: TextStyle(color: Colors.white, fontSize: 16),
+    ),
+  );
+}
+```
+
+### 6. 沉浸式交互（第 73-84 行）
+
+```dart
+void _toggleControls() {
+  setState(() {
+    _showControls = !_showControls;
+    if (_showControls) {
+      _animationController.forward();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } else {
+      _animationController.reverse();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    }
+  });
+}
+```
 
 ---
 
@@ -97,10 +217,10 @@ void _showFullScreenPreview(BuildContext context, int index) {
   Navigator.of(context).push(
     MaterialPageRoute(
       builder: (context) => FullScreenImageViewer(
-        imagePaths: viewModel.selectedImages.map((file) => file.path).toList(),
-        imageTitles: viewModel.recognizedNumbers,
+        imagePaths: viewModel.selectedImages
+            .map((file) => file.path)
+            .toList(),
         initialIndex: index,
-        enableRotation: true,  // 主页面启用旋转
       ),
     ),
   );
@@ -130,9 +250,7 @@ void _handleResultTap(int index) {
     MaterialPageRoute(
       builder: (context) => FullScreenImageViewer(
         imagePaths: _results.map((e) => e.filePath).toList(),
-        imageTitles: _results.map((e) => e.number).toList(),
         initialIndex: index,
-        enableRotation: false,  // 搜索结果禁用旋转
       ),
     ),
   );
@@ -149,147 +267,45 @@ Navigator.push(
     builder: (context) => FullScreenImageViewer(
       imagePaths: ['/path/to/image.jpg'],
       initialIndex: 0,
-      enableRotation: true,
     ),
   ),
 );
 ```
-
-### 示例 4：不显示标题
-
-```dart
-// 打开图片预览但不显示标题
-Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => FullScreenImageViewer(
-      imagePaths: imagePaths,
-      initialIndex: 0,
-      enableRotation: true,
-      // 不传递 imageTitles 参数，则不显示标题
-    ),
-  ),
-);
-```
-
----
-
-## UI 子组件
-
-| 子组件 | 代码位置 | 说明 |
-|--------|----------|------|
-| `_buildImageContent` | 115-163 | PageView 图片内容区域 |
-| `_buildRotatedImage` | 246-260 | 可旋转的图片容器 |
-| `_buildGestureImage` | 263-347 | 带手势的图片（双指缩放+旋转+移动） |
-| `_buildTopAppBar` | 350-433 | 顶部操作栏（返回+旋转+页码） |
-| `_buildBottomIndicator` | 436-486 | 底部指示器（当前页指示器） |
-
----
-
-## 功能说明
-
-### 1. 双击缩放功能（第 152-170 行）
-
-双击图片时：
-- 当前缩放比例 ≤ 1.0：放大到 2 倍（以点击位置为中心）
-- 当前缩放比例 > 1.0：恢复到 1 倍
-
-**实现细节**：
-- 使用 `_transformKey` 和 `RenderBox` 进行坐标转换
-- `globalToLocal()` 将屏幕坐标转换为组件局部坐标
-- `_animateToScaleAtPoint()` 实现以点击位置为中心的缩放
-
-### 2. 空列表保护（第 116-123 行）
-
-**保护逻辑**：
-- 检查 `widget.imagePaths.isEmpty`
-- 显示"暂无图片"提示文本
-- 防止访问空列表导致运行时错误
-
-### 3. 手势缩放和旋转（第 263-347 行）
-
-**支持的手势**：
-- 双指缩放：`details.scale`
-- 双指旋转：`details.rotation`
-- 双指拖动：`details.localFocalPoint - _initialFocalPoint`
-
-**实现细节**：
-- 定点缩放与旋转（Focal Zoom & Rotate）
-- 逻辑三明治：移到锚点 → 变换 → 移回锚点
-- 手势结束时自动回弹到 1.0 倍（如果缩放过小）
-
-### 4. 页面切换控制（第 64-68 行）
-
-**智能切换逻辑**：
-```dart
-bool get _allowPageScroll {
-  final scale = _transformationController.value.getMaxScaleOnAxis();
-  return scale <= 1.01; // 缩放 > 1.01 时禁止滑动
-}
-```
-
-- 缩放比例 ≤ 1.01：可以左右滑动切换图片
-- 缩放比例 > 1.01：禁止滑动，防止误操作
-
-### 5. 沉浸式交互（第 139-150 行）
-
-单击屏幕时：
-- 隐藏 UI：`SystemUiMode.immersive`（隐藏状态栏）
-- 显示 UI：`SystemUiMode.edgeToEdge`（显示状态栏）
-- `_showControls` 控制顶部和底部操作栏的显示/隐藏
-
-### 6. 旋转功能（第 350-433 行）
-
-**按钮旋转**（如果 `enableRotation: true`）：
-- 逆时针旋转：每次 -90 度
-- 顺时针旋转：每次 +90 度
-- 页面切换时重置旋转角度
-
-**旋转角度范围**：0°, 90°, 180°, 270°
-
-### 7. 页面索引跟踪（第 62, 78, 131 行）
-
-**本地状态管理**：
-```dart
-int _currentIndex = 0;  // 本地状态，避免在 PageView 构建前访问 PageController.page
-
-@override
-void initState() {
-  super.initState();
-  _currentIndex = widget.initialIndex;  // 初始化为初始索引
-  // ...
-}
-
-onPageChanged: (index) {
-  setState(() {
-    _currentIndex = index;  // 更新当前索引
-    _currentRotation = 0;   // 页面切换时重置旋转
-  });
-},
-```
-
-**原因**：避免在 PageView 构建前访问 `PageController.page` 导致错误。
 
 ---
 
 ## 架构说明
 
-### 组件独立性
+### 组件结构
 
 ```
-FullScreenImageViewer (完全独立)
-    ├── 通过构造函数参数接收数据
-    ├── 不依赖 ViewModel
-    ├── 不依赖 Provider
-    └── 可在任何地方使用
+FullScreenImageViewer (父组件)
+    ├── PageView.builder (多图滑动)
+    │   └── _ZoomableImageItem (单个可缩放图片)
+    │       ├── GestureDetector (双击/单击检测)
+    │       └── InteractiveViewer (缩放/平移)
+    │           └── ExtendedImage.file (图片加载)
+    ├── _buildTopBar (顶部工具栏)
+    └── _buildBottomIndicator (底部提示)
 ```
 
-**优点**：
-- ✅ 完全独立，可在任何页面或组件中使用
-- ✅ 通过构造函数参数传递数据，清晰明确
-- ✅ 本地状态管理，不依赖外部状态
-- ✅ 可独立测试
-- ✅ 可复用性强
+### 状态提升（State Lifting）
+
+子组件 `_ZoomableImageItem` 通过回调通知父组件缩放状态变化：
+
+```dart
+// 父组件定义回调
+void _onZoomStatusChanged(bool isZoomed) {
+  if (_enablePageScroll == !isZoomed) {
+    setState(() {
+      _enablePageScroll = !isZoomed;
+    });
+  }
+}
+
+// 子组件调用回调
+widget.onZoomStatusChanged(isZoomedNow);
+```
 
 ### 数据流向
 
@@ -300,75 +316,59 @@ Navigator.push(context, MaterialPageRoute(...))
     ↓ 传递参数
 FullScreenImageViewer
     ├── imagePaths: List<String>
-    ├── imageTitles: List<String>?
-    ├── initialIndex: int
-    └── enableRotation: bool
+    └── initialIndex: int
+        ↓ 渲染
+    PageView.builder
+        └── _ZoomableImageItem (每个图片)
+            └── InteractiveViewer (手势处理)
 ```
-
-### 与旧版本对比
-
-| 特性 | 旧版本 | 当前版本 |
-|------|--------|----------|
-| ViewModel 依赖 | ✅ 依赖 Provider | ❌ 完全独立 |
-| 数据获取 | `context.read<ViewModel>()` | 构造函数参数 |
-| 状态管理 | ViewModel 状态 + 本地状态 | 仅本地状态 |
-| 可复用性 | 仅在特定 Provider 作用域内 | 任何地方 |
-| 测试难度 | 需要 Provider 环境 | 独立测试 |
 
 ---
 
-## 修改注意事项
+## 交互流程
 
-### 关键设计决策
+### 场景 1：查看多张图片
 
-#### 1. 使用本地状态跟踪页面索引
-
-**问题**：在 `build()` 方法中访问 `PageController.page` 会在 PageView 构建前导致错误。
-
-**解决方案**：使用本地状态 `_currentIndex` 跟踪当前页面索引。
-
-```dart
-// ❌ 错误做法
-Widget _buildTopAppBar() {
-  final currentIndex = _pageController.page?.round() ?? 0;  // 会报错！
-  // ...
-}
-
-// ✅ 正确做法
-int _currentIndex = 0;  // 本地状态
-
-@override
-void initState() {
-  super.initState();
-  _currentIndex = widget.initialIndex;  // 初始化
-}
-
-onPageChanged: (index) {
-  setState(() {
-    _currentIndex = index;  // 更新
-  });
-},
+```
+1. 打开图片查看器
+2. 左右滑动 → 切换图片（未缩放时）
+3. 单击屏幕 → 隐藏/显示 UI
+4. 点击返回按钮 → 关闭查看器
 ```
 
-#### 2. 为每个页面创建独立的 TransformationController
+### 场景 2：缩放查看细节
 
-**问题**：如果所有页面共享同一个 `TransformationController`，缩放状态会混乱。
-
-**解决方案**：每个 `_ImageViewerPage` 有自己的 `TransformationController`。
-
-#### 3. 坐标转换的精确性
-
-双击缩放需要精确的坐标转换：
-```dart
-// 将屏幕绝对坐标转换为组件局部坐标
-final Offset localFocalPoint = renderBox.globalToLocal(globalFocalPoint);
+```
+1. 双击图片 → 放大到 2.5x（以点击位置为中心）
+2. 拖动图片 → 查看不同区域
+3. 再次双击 → 还原到 1.0x
 ```
 
-#### 4. 旋转功能的控制
+### 场景 3：双指缩放
 
-通过 `enableRotation` 参数控制是否启用旋转：
-- 主页面（扫描时）：`enableRotation: true`（可能需要旋转图片）
-- 搜索页面：`enableRotation: false`（只查看已归档的图纸）
+```
+1. 双指捏合 → 缩小到 0.5x
+2. 继续捏合 → 缩小到 0.1x
+3. 双指张开 → 放大到 5x
+4. 继续张开 → 放大到 50x（无限放大）
+```
+
+### 场景 4：手势路由切换
+
+```
+1. 初始状态 (1.0x)
+   - 左右滑动 → 翻页
+   - 拖动无效 → 不触发平移
+
+2. 双击放大 (2.5x)
+   - PageView 锁定 → 无法翻页
+   - 拖动生效 → 自由移动图片
+   - 滑到边缘 → 不会翻页
+
+3. 双击还原 (1.0x)
+   - PageView 解锁 → 恢复翻页
+   - 拖动无效 → 恢复翻页
+```
 
 ---
 
@@ -376,6 +376,8 @@ final Offset localFocalPoint = renderBox.globalToLocal(globalFocalPoint);
 
 | 文件 | 说明 |
 |------|------|
-| `lib/comp_src/widgets/full_screen_image_viewer.dart` | 组件代码 |
+| `lib/comp_src/widgets/full_screen_image_viewer.dart` | 组件代码（单文件） |
 | `lib/comp_src/widgets/action_card.dart` | 使用此组件（主页面） |
 | `lib/comp_src/pages/drawing_search_page.dart` | 使用此组件（搜索页面） |
+| `pubspec.yaml` | extended_image 依赖配置 |
+| `integration_test/image_preview_test.dart` | 集成测试 |

@@ -651,9 +651,7 @@ class ActionCard extends StatelessWidget {
           imagePaths: viewModel.selectedImages
               .map((file) => file.path)
               .toList(),
-          imageTitles: viewModel.recognizedNumbers,
           initialIndex: index,
-          enableRotation: true,
         ),
       ),
     );
