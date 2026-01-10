@@ -1,23 +1,18 @@
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/gestures.dart'; // 必须引入
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:extended_image/extended_image.dart';
 
-/// 全屏图片预览组件（使用 InteractiveViewer 实现无边界缩放）
+/// 全屏图片预览组件 (终极修正版)
 ///
-/// 提供系统相册级体验的图片预览功能：
-/// - 全屏预览（黑色背景）
-/// - 多图浏览（左右滑动切换）
-/// - 手势缩放（双指/双击，以点击位置为中心）
-/// - 无边界拖动（缩放后可自由拖动，不受边界限制）
-/// - 沉浸式交互（单击隐藏/显示 UI）
-/// - 智能交互（缩放前滑动翻页，缩放后锁定翻页）
+/// 修复了 1.0x 状态下 GestureDetector 抢占手势导致无法翻页的问题
+/// 特性：
+/// 1. 支持双指【缩放】+【旋转】+【平移】+【无限拖拽】
+/// 2. 完美解决与 PageView 的手势冲突
 class FullScreenImageViewer extends StatefulWidget {
-  /// 图片文件路径列表
   final List<String> imagePaths;
-
-  /// 初始显示的图片索引
   final int initialIndex;
 
   const FullScreenImageViewer({
@@ -35,13 +30,10 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   late PageController _pageController;
   int _currentIndex = 0;
   bool _showControls = true;
-
-  /// 是否允许 PageView 翻页
-  /// 当任意图片缩放 > 1.01 时，锁定 PageView
   bool _enablePageScroll = true;
 
-  late AnimationController _animationController;
-  late Animation<double> _opacityAnimation;
+  late AnimationController _uiAnimController;
+  late Animation<double> _uiOpacityAnim;
 
   @override
   void initState() {
@@ -49,47 +41,43 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
     _pageController = PageController(initialPage: widget.initialIndex);
     _currentIndex = widget.initialIndex;
 
-    _animationController = AnimationController(
+    _uiAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    _uiOpacityAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _uiAnimController, curve: Curves.easeInOut),
     );
 
-    if (_showControls) _animationController.forward();
+    if (_showControls) _uiAnimController.forward();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _animationController.dispose();
+    _uiAnimController.dispose();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     super.dispose();
   }
 
-  /// 切换 UI 显示/隐藏状态
   void _toggleControls() {
     setState(() {
       _showControls = !_showControls;
       if (_showControls) {
-        _animationController.forward();
+        _uiAnimController.forward();
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       } else {
-        _animationController.reverse();
+        _uiAnimController.reverse();
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
       }
     });
   }
 
-  /// 子组件通知父组件：缩放状态改变了
-  /// isZoomed: true 表示正在放大，需要锁死翻页；false 表示恢复原状，允许翻页
-  void _onZoomStatusChanged(bool isZoomed) {
-    // 只有状态真正改变时才 setState，优化性能
-    if (_enablePageScroll == isZoomed) {
+  void _onStateChanged(bool isReset) {
+    if (_enablePageScroll != isReset) {
       setState(() {
-        _enablePageScroll = !isZoomed;
+        _enablePageScroll = isReset;
       });
     }
   }
@@ -101,7 +89,23 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
       body: Stack(
         children: [
           Positioned.fill(
-            child: _buildImageGallery(),
+            child: PageView.builder(
+              controller: _pageController,
+              // 这里的 physics 配合下面的手势识别器，完美解决冲突
+              physics: _enablePageScroll
+                  ? const BouncingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              itemCount: widget.imagePaths.length,
+              onPageChanged: (index) => setState(() => _currentIndex = index),
+              itemBuilder: (context, index) {
+                return _GestureImageItem(
+                  imagePath: widget.imagePaths[index],
+                  onTap: _toggleControls,
+                  onStateChanged: _onStateChanged,
+                  enablePageScroll: _enablePageScroll, // 传入当前状态
+                );
+              },
+            ),
           ),
           _buildTopBar(),
           _buildBottomIndicator(),
@@ -110,62 +114,23 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
     );
   }
 
-  /// 构建图片画廊（使用 PageView）
-  Widget _buildImageGallery() {
-    if (widget.imagePaths.isEmpty) {
-      return const Center(
-        child: Text(
-          '暂无图片',
-          style: TextStyle(color: Colors.white, fontSize: 16),
-        ),
-      );
-    }
-
-    return PageView.builder(
-      controller: _pageController,
-      // 【核心逻辑】根据缩放状态动态切换物理效果
-      // 放大时：NeverScrollable (锁死)
-      // 正常时：Bouncing (允许翻页)
-      physics: _enablePageScroll
-          ? const BouncingScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      itemCount: widget.imagePaths.length,
-      onPageChanged: (index) => setState(() => _currentIndex = index),
-      itemBuilder: (context, index) {
-        return _ZoomableImageItem(
-          imagePath: widget.imagePaths[index],
-          onTap: _toggleControls,
-          onZoomStatusChanged: _onZoomStatusChanged,
-        );
-      },
-    );
-  }
-
-  /// 构建顶部工具栏
   Widget _buildTopBar() {
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
+      top: 0, left: 0, right: 0,
       child: FadeTransition(
-        opacity: _opacityAnimation,
+        opacity: _uiOpacityAnim,
         child: IgnorePointer(
           ignoring: !_showControls,
           child: Container(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 8,
-              bottom: 12,
-              left: 8,
-              right: 8,
+              bottom: 12, left: 8, right: 8,
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.8),
-                  Colors.transparent,
-                ],
+                colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
               ),
             ),
             child: Row(
@@ -178,11 +143,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
                 ),
                 Text(
                   '${_currentIndex + 1}/${widget.imagePaths.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
                 const SizedBox(width: 48),
               ],
@@ -193,14 +154,11 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
     );
   }
 
-  /// 构建底部指示器
   Widget _buildBottomIndicator() {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: 0, left: 0, right: 0,
       child: FadeTransition(
-        opacity: _opacityAnimation,
+        opacity: _uiOpacityAnim,
         child: IgnorePointer(
           ignoring: !_showControls,
           child: Container(
@@ -212,19 +170,13 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.6),
-                  Colors.transparent,
-                ],
+                colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
               ),
             ),
             child: Center(
               child: Text(
-                _enablePageScroll ? '左右滑动查看图片' : '双指缩放 · 拖动查看',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14,
-                ),
+                _enablePageScroll ? '左右滑动查看图片' : '双指旋转 · 自由拖拽',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ),
           ),
@@ -234,115 +186,137 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer>
   }
 }
 
-/// 可缩放的图片项组件
-///
-/// 使用 InteractiveViewer 实现无边界拖动和缩放
-class _ZoomableImageItem extends StatefulWidget {
+class _GestureImageItem extends StatefulWidget {
   final String imagePath;
   final VoidCallback onTap;
-  final ValueChanged<bool> onZoomStatusChanged;
+  final ValueChanged<bool> onStateChanged;
+  final bool enablePageScroll; // 接收父组件的状态
 
-  const _ZoomableImageItem({
+  const _GestureImageItem({
     required this.imagePath,
     required this.onTap,
-    required this.onZoomStatusChanged,
+    required this.onStateChanged,
+    required this.enablePageScroll,
   });
 
   @override
-  State<_ZoomableImageItem> createState() => _ZoomableImageItemState();
+  State<_GestureImageItem> createState() => _GestureImageItemState();
 }
 
-class _ZoomableImageItemState extends State<_ZoomableImageItem>
+class _GestureImageItemState extends State<_GestureImageItem>
     with SingleTickerProviderStateMixin {
   final TransformationController _transformController = TransformationController();
-  late AnimationController _doubleTapAnimationController;
-  Animation<Matrix4>? _doubleTapAnimation;
+  late AnimationController _animController;
+  Animation<Matrix4>? _animation;
 
-  TapDownDetails? _doubleTapDetails;
+  // 增量计算所需的状态变量
+  Offset? _lastFocalPoint;
+  double _lastScale = 1.0;
+  double _lastRotation = 0.0;
+  int _lastPointerCount = 0; // 记录手指数量，用于检测切换
+
   Timer? _singleTapTimer;
-  bool _isZoomed = false;
-
-  /// 双击缩放的目标比例
-  static const double _doubleTapScale = 2.5;
+  TapDownDetails? _doubleTapDetails;
 
   @override
   void initState() {
     super.initState();
-    _doubleTapAnimationController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-
-    // 监听缩放变化
-    _transformController.addListener(_onTransformationChange);
+    _transformController.addListener(_checkState);
   }
 
   @override
   void dispose() {
-    _transformController.removeListener(_onTransformationChange);
+    _transformController.removeListener(_checkState);
     _transformController.dispose();
-    _doubleTapAnimationController.dispose();
+    _animController.dispose();
     _singleTapTimer?.cancel();
     super.dispose();
   }
 
-  /// 监听变换矩阵变化
-  void _onTransformationChange() {
-    final double scale = _transformController.value.getMaxScaleOnAxis();
-    // 设置一个容差范围：scale < 0.99 或 scale > 1.01 都认为是缩放状态
-    // 这样既能检测放大，也能检测缩小
-    final bool isZoomedNow = scale < 0.99 || scale > 1.01;
-
-    if (_isZoomed != isZoomedNow) {
-      setState(() {
-        _isZoomed = isZoomedNow;
-      });
-      // 通知父组件更新 PageView 的物理锁
-      widget.onZoomStatusChanged(isZoomedNow);
-    }
+  void _checkState() {
+    final Matrix4 m = _transformController.value;
+    final double scale = m.getMaxScaleOnAxis();
+    final bool hasRotation = m.entry(0, 1).abs() > 0.01;
+    final bool hasScale = scale < 0.99 || scale > 1.01;
+    final bool isTransformed = hasRotation || hasScale;
+    widget.onStateChanged(!isTransformed);
   }
 
-  /// 处理双击事件
+  /// 手势开始：记录初始状态
+  void _onScaleStart(ScaleStartDetails details) {
+    _lastFocalPoint = details.localFocalPoint;
+    _lastScale = 1.0;
+    _lastRotation = 0.0;
+    _lastPointerCount = details.pointerCount;
+  }
+
+  /// 手势更新：核心增量算法
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    // 1. 手指数量变化检测 (防跳动核心)
+    // 当从 1指 -> 2指 或 2指 -> 1指 时，FocalPoint 会突变。
+    // 我们必须在此刻重置"上一帧"的数据，跳过这一帧的计算，防止图片瞬移。
+    if (details.pointerCount != _lastPointerCount) {
+      _lastFocalPoint = details.localFocalPoint;
+      _lastScale = details.scale;
+      _lastRotation = details.rotation;
+      _lastPointerCount = details.pointerCount;
+      return;
+    }
+
+    // 2. 计算增量 (Delta)
+    // 这一帧比上一帧变了多少？
+    final double scaleDelta = details.scale / _lastScale;
+    final double rotationDelta = details.rotation - _lastRotation;
+
+    // 3. 构建增量矩阵
+    // 逻辑：将图片中心平移到新的手指位置 -> 旋转 -> 缩放 -> 移回原位
+    final Matrix4 deltaMatrix = Matrix4.identity()
+      ..translate(details.localFocalPoint.dx, details.localFocalPoint.dy)
+      ..rotateZ(rotationDelta)
+      ..scale(scaleDelta)
+      ..translate(-_lastFocalPoint!.dx, -_lastFocalPoint!.dy);
+
+    // 4. 应用增量 (左乘：基于屏幕坐标系)
+    // NewState = Delta * OldState
+    _transformController.value = deltaMatrix * _transformController.value;
+
+    // 5. 更新状态，为下一帧做准备
+    _lastFocalPoint = details.localFocalPoint;
+    _lastScale = details.scale;
+    _lastRotation = details.rotation;
+  }
+
   void _handleDoubleTap() {
-    if (_doubleTapAnimationController.isAnimating) return;
+    if (_animController.isAnimating) return;
 
-    final double currentScale = _transformController.value.getMaxScaleOnAxis();
-    final Offset tapPosition = _doubleTapDetails!.localPosition;
+    final Matrix4 current = _transformController.value;
+    final double scale = current.getMaxScaleOnAxis();
+    final bool hasRotation = current.entry(0, 1).abs() > 0.01;
 
-    Matrix4 endMatrix;
-    // 如果不在 1.0 的容差范围内（即已放大或已缩小），还原到 1.0
-    if (currentScale < 0.99 || currentScale > 1.01) {
-      endMatrix = Matrix4.identity();
+    Matrix4 target;
+    if (scale < 0.99 || scale > 1.01 || hasRotation) {
+      target = Matrix4.identity();
     } else {
-      // 如果是 1.0 状态，放大到 2.5 倍
-      // 计算偏移量，使点击点处于屏幕中心
-      // 算法：Translate(-pos * (scale - 1)) -> Scale(s)
-      final double targetScale = _doubleTapScale;
-      final double dx = -tapPosition.dx * (targetScale - 1);
-      final double dy = -tapPosition.dy * (targetScale - 1);
-
-      endMatrix = Matrix4.identity()
-        ..translate(dx, dy)
-        ..scale(targetScale);
+      final Offset tapPos = _doubleTapDetails?.localPosition ?? Offset.zero;
+      final double s = 2.5;
+      final double dx = tapPos.dx * (1 - s);
+      final double dy = tapPos.dy * (1 - s);
+      target = Matrix4.identity()..translate(dx, dy)..scale(s);
     }
 
-    // 启动动画
-    _doubleTapAnimation = Matrix4Tween(
-      begin: _transformController.value,
-      end: endMatrix,
-    ).animate(CurvedAnimation(
-      parent: _doubleTapAnimationController,
-      curve: Curves.fastOutSlowIn,
-    ));
-
-    _doubleTapAnimation!.addListener(() {
-      _transformController.value = _doubleTapAnimation!.value;
+    _animation = Matrix4Tween(begin: current, end: target).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOutQuad),
+    );
+    _animation!.addListener(() {
+      _transformController.value = _animation!.value;
     });
-
-    _doubleTapAnimationController.forward(from: 0);
+    _animController.forward(from: 0);
   }
 
-  /// 处理单击（防抖）
   void _handleSingleTap() {
     _singleTapTimer?.cancel();
     _singleTapTimer = Timer(const Duration(milliseconds: 200), () {
@@ -352,29 +326,51 @@ class _ZoomableImageItemState extends State<_ZoomableImageItem>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onDoubleTapDown: (d) => _doubleTapDetails = d,
-      onDoubleTap: _handleDoubleTap,
-      onTap: _handleSingleTap,
+    // 【核心修复】使用 RawGestureDetector + 自定义手势识别器
+    return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
-      child: InteractiveViewer(
-        transformationController: _transformController,
-
-        // 允许缩小到很小 (0.01)
-        minScale: 0.01,
-        // 允许无限放大
-        maxScale: double.infinity,
-
-        // 始终允许无限边界，确保在 1.0 时也能直接捏合缩小
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-
-        // 只有在缩放状态下才响应平移 (Pan)
-        // 1.0 时 Pan 被禁用，手势穿透给 PageView 用于翻页
-        panEnabled: _isZoomed,
-
-        // 始终允许缩放
-        scaleEnabled: true,
-
+      gestures: {
+        // 自定义 Scale 识别器：在单指且允许翻页时，主动"装死"，让给 PageView
+        _CheckScaleGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+            _CheckScaleGestureRecognizer>(
+          () => _CheckScaleGestureRecognizer(
+            debugOwner: this,
+            isPageScrollEnabled: widget.enablePageScroll,
+          ),
+          (_CheckScaleGestureRecognizer instance) {
+            instance.onStart = _onScaleStart;
+            instance.onUpdate = _onScaleUpdate;
+          },
+        ),
+        // 双击识别器保持不变
+        DoubleTapGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+            DoubleTapGestureRecognizer>(
+          () => DoubleTapGestureRecognizer(debugOwner: this),
+          (DoubleTapGestureRecognizer instance) {
+            instance.onDoubleTapDown = (d) => _doubleTapDetails = d;
+            instance.onDoubleTap = _handleDoubleTap;
+          },
+        ),
+        // 单击识别器
+        TapGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+            TapGestureRecognizer>(
+          () => TapGestureRecognizer(debugOwner: this),
+          (TapGestureRecognizer instance) {
+            instance.onTap = _handleSingleTap;
+          },
+        ),
+      },
+      // 【修复核心】：使用 AnimatedBuilder 监听 _transformController
+      // 只有加上这个，矩阵变化时界面才会刷新！
+      child: AnimatedBuilder(
+        animation: _transformController,
+        builder: (context, child) {
+          return Transform(
+            transform: _transformController.value,
+            alignment: Alignment.topLeft,
+            child: child,
+          );
+        },
         child: ExtendedImage.file(
           File(widget.imagePath),
           fit: BoxFit.contain,
@@ -383,5 +379,45 @@ class _ZoomableImageItemState extends State<_ZoomableImageItem>
         ),
       ),
     );
+  }
+}
+
+/// 【自定义手势识别器】
+/// 解决痛点：GestureDetector 在单指滑动时会抢占 PageView 的事件。
+/// 原理：如果检测到只有 1 个手指，且当前允许翻页，就直接丢弃移动事件，
+/// 这样底层的 PageView 就能收到事件并正常翻页了。
+class _CheckScaleGestureRecognizer extends ScaleGestureRecognizer {
+  final bool isPageScrollEnabled;
+  int _pointerCount = 0; // 手动追踪手指数量
+
+  _CheckScaleGestureRecognizer({
+    super.debugOwner,
+    required this.isPageScrollEnabled,
+  });
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    _pointerCount++;
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _pointerCount--;
+    }
+
+    // 【关键逻辑】
+    // 1. 如果当前允许翻页 (isPageScrollEnabled = true)
+    // 2. 并且只有 1 根手指 (_pointerCount < 2)
+    // 3. 并且是移动事件 (PointerMoveEvent)
+    // -> 那么，我们直接忽略这个事件（不传给 super）。
+    // 结果：ScaleGestureRecognizer 认为没有发生移动，不会宣示主权。
+    // PageView 的 HorizontalDragGestureRecognizer 则会看到移动，并宣示主权，成功翻页！
+    if (isPageScrollEnabled && _pointerCount < 2 && event is PointerMoveEvent) {
+      return;
+    }
+
+    super.handleEvent(event);
   }
 }

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:demo/main.dart' as app;
+import 'package:demo/comp_src/widgets/full_screen_image_viewer.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 
 /// 平滑渲染函数：强制测试框架按 60FPS 渲染动画，而不是跳过
 ///
@@ -171,23 +175,23 @@ void main() {
     await pumpSmoothly(tester, const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    // 查找 InteractiveViewer（新的手势处理组件）
-    final interactiveViewer = find.byType(InteractiveViewer);
-    if (interactiveViewer.evaluate().isNotEmpty) {
-      print('   找到 InteractiveViewer 组件，执行双击放大');
+    // 查找 PageView（新的手势处理组件）
+    final pageViewFinder = find.byType(PageView);
+    if (pageViewFinder.evaluate().isNotEmpty) {
+      print('   找到 PageView 组件，执行双击放大');
 
       // 获取组件的位置和大小
       await tester.pumpAndSettle();
 
       // 使用 tester.tap() 模拟双击（更容易触发 GestureDetector）
       // 在组件中心位置执行双击手势
-      final center = tester.getCenter(interactiveViewer);
+      final center = tester.getCenter(pageViewFinder);
       print('   图片中心位置: ${center.dx}, ${center.dy}');
 
       // 第一次双击（放大）- 快速点击两次
-      await tester.tap(interactiveViewer);
+      await tester.tapAt(center);
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(interactiveViewer);
+      await tester.tapAt(center);
 
       // 使用平滑渲染播放缩放动画（300ms 是动画时长）
       await pumpSmoothly(tester, const Duration(milliseconds: 400));
@@ -203,9 +207,9 @@ void main() {
       print('\nStep 5: 测试双击还原');
 
       // 第二次双击（还原）- 快速点击两次
-      await tester.tap(interactiveViewer);
+      await tester.tapAt(center);
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(interactiveViewer);
+      await tester.tapAt(center);
 
       // 使用平滑渲染播放缩放还原动画
       await pumpSmoothly(tester, const Duration(milliseconds: 400));
@@ -220,7 +224,7 @@ void main() {
       // Step 6: 测试 4 个不同位置的双击缩放
       print('\nStep 6: 测试 4 个不同位置的双击缩放');
 
-      final Size size = tester.getSize(interactiveViewer);
+      final Size size = tester.getSize(pageViewFinder);
       print('   图片尺寸: ${size.width} x ${size.height}');
 
       // 定义 4 个测试位置：左上、右上、左下、右下
@@ -249,9 +253,9 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         // 还原
-        await tester.tap(interactiveViewer);
+        await tester.tapAt(center);
         await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(interactiveViewer);
+        await tester.tapAt(center);
         await pumpSmoothly(tester, const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         print('   ✅ 已还原');
@@ -264,7 +268,7 @@ void main() {
       // Step 7: 测试 4 个不同位置的双指缩放
       print('\nStep 7: 测试 4 个不同位置的双指缩放');
 
-      final imageSize = tester.getSize(interactiveViewer);
+      final imageSize = tester.getSize(pageViewFinder);
 
       // 定义 4 个测试位置
       final pinchTestPositions = [
@@ -324,9 +328,9 @@ void main() {
         print('   ✅ ${pos['name']}双指缩小完成');
 
         // 双击还原
-        await tester.tap(interactiveViewer);
+        await tester.tapAt(center);
         await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(interactiveViewer);
+        await tester.tapAt(center);
         await pumpSmoothly(tester, const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
 
@@ -335,7 +339,7 @@ void main() {
 
       print('\n✅ 4 个位置双指缩放测试完成！');
     } else {
-      print('   ⚠️ 未找到 InteractiveViewer 组件');
+      print('   ⚠️ 未找到 PageView 组件');
     }
 
     // 保持应用打开，等待观察
@@ -345,5 +349,203 @@ void main() {
     print('\n========================================');
     print('✅ 测试完成！');
     print('========================================\n');
+  });
+
+  // ========================================
+  // 新增：手势健壮性测试（基于增量算法）
+  // ========================================
+
+  group('FullScreenImageViewer 手势健壮性测试', () {
+    late List<String> testImagePaths;
+
+    // 在所有测试开始前，生成 2 张测试图片文件
+    setUpAll(() async {
+      testImagePaths = [];
+      final directory = await getTemporaryDirectory();
+
+      // 创建简单的 1x1 像素透明图片数据 (PNG header)
+      final Uint8List pngBytes = Uint8List.fromList([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+        0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+      ]);
+
+      for (int i = 0; i < 2; i++) {
+        final File file = File('${directory.path}/test_image_$i.png');
+        await file.writeAsBytes(pngBytes);
+        testImagePaths.add(file.path);
+      }
+    });
+
+    // 辅助函数：获取当前图片的变换矩阵
+    Matrix4 getCurrentTransform(WidgetTester tester) {
+      final transformFinder = find.descendant(
+        of: find.byType(FullScreenImageViewer),
+        matching: find.byType(Transform),
+      );
+      // 取第一个找到的 Transform（基于代码结构，它是直接包裹 Image 的）
+      final Transform transformWidget = tester.widget(transformFinder.first);
+      return transformWidget.transform;
+    }
+
+    testWidgets('测试 1: 初始状态下 PageView 翻页功能', (WidgetTester tester) async {
+      print('\n--- 测试 1: 初始状态翻页 ---');
+
+      await tester.pumpWidget(MaterialApp(
+        home: FullScreenImageViewer(imagePaths: testImagePaths),
+      ));
+      await tester.pumpAndSettle();
+
+      // 验证当前是第一页
+      expect(find.text('1/2'), findsOneWidget);
+      print('✅ 初始状态：第一页');
+
+      // 执行向左滑动（翻到下一页）
+      await tester.drag(find.byType(PageView), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      // 验证翻到了第二页
+      expect(find.text('2/2'), findsOneWidget);
+      print('✅ 翻页成功：第二页');
+    });
+
+    testWidgets('测试 2: 双击放大与 PageView 锁定机制', (WidgetTester tester) async {
+      print('\n--- 测试 2: 双击放大与翻页锁定 ---');
+
+      await tester.pumpWidget(MaterialApp(
+        home: FullScreenImageViewer(imagePaths: testImagePaths),
+      ));
+      await tester.pumpAndSettle();
+
+      final pageView = find.byType(PageView);
+      final center = tester.getCenter(pageView);
+
+      // 1. 双击中心
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle(); // 等待动画完成
+
+      // 2. 验证矩阵是否放大 (Scale > 1.0)
+      final matrix = getCurrentTransform(tester);
+      final scale = matrix.getMaxScaleOnAxis();
+      expect(scale, greaterThan(1.1), reason: "双击后应该放大");
+      print('✅ 双击放大成功：scale = $scale');
+
+      // 3. 尝试翻页（此时应该被锁死）
+      await tester.drag(pageView, const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      // 验证依然在第一页 (PageScroll Locked)
+      expect(find.text('1/2'), findsOneWidget, reason: "放大状态下不应触发翻页");
+      print('✅ 放大状态下翻页已锁定');
+    });
+
+    testWidgets('测试 3: 双指旋转交互', (WidgetTester tester) async {
+      print('\n--- 测试 3: 双指旋转 ---');
+
+      await tester.pumpWidget(MaterialApp(
+        home: FullScreenImageViewer(imagePaths: testImagePaths),
+      ));
+      await tester.pumpAndSettle();
+
+      final pageView = find.byType(PageView);
+      final center = tester.getCenter(pageView);
+
+      // 创建两个手指
+      final gesture1 = await tester.startGesture(center + const Offset(-50, 0), pointer: 7);
+      final gesture2 = await tester.startGesture(center + const Offset(50, 0), pointer: 8);
+
+      // 旋转 90 度 (模拟)
+      // 左手指向上移，右手指向下移 -> 顺时针旋转
+      await gesture1.moveTo(center + const Offset(0, -50));
+      await gesture2.moveTo(center + const Offset(0, 50));
+
+      await tester.pump(); // 触发重绘
+
+      // 验证矩阵包含旋转
+      final matrix = getCurrentTransform(tester);
+      // 计算旋转分量 (sin值)
+      final sinValue = matrix.entry(0, 1); // Row 0, Col 1
+      expect(sinValue.abs(), greaterThan(0.1), reason: "应该检测到旋转");
+      print('✅ 旋转成功：sin(theta) = $sinValue');
+
+      await gesture1.up();
+      await gesture2.up();
+    });
+
+    testWidgets('测试 4: 双击复位功能 (旋转+放大后双击)', (WidgetTester tester) async {
+      print('\n--- 测试 4: 双击复位 ---');
+
+      await tester.pumpWidget(MaterialApp(
+        home: FullScreenImageViewer(imagePaths: testImagePaths),
+      ));
+      await tester.pumpAndSettle();
+
+      final pageView = find.byType(PageView);
+      final center = tester.getCenter(pageView);
+
+      // 先搞乱状态：双击放大
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+
+      // 验证已放大
+      expect(getCurrentTransform(tester).getMaxScaleOnAxis(), greaterThan(1.1));
+      print('✅ 已放大');
+
+      // 再次双击（应该复位）
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle(); // 等待复位动画
+
+      // 验证回归单位矩阵 (Identity)
+      final matrix = getCurrentTransform(tester);
+      expect(matrix.isIdentity(), isTrue, reason: "再次双击应还原为初始状态");
+      print('✅ 双击复位成功：回归 Identity');
+    });
+
+    testWidgets('测试 5: 无限拖拽 (放大后单指移动)', (WidgetTester tester) async {
+      print('\n--- 测试 5: 无限拖拽 ---');
+
+      await tester.pumpWidget(MaterialApp(
+        home: FullScreenImageViewer(imagePaths: testImagePaths),
+      ));
+      await tester.pumpAndSettle();
+
+      final pageView = find.byType(PageView);
+      final center = tester.getCenter(pageView);
+
+      // 1. 先双击放大，进入"自由模式"
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+
+      // 获取初始位移
+      final initialMatrix = getCurrentTransform(tester);
+      final initialTranslation = initialMatrix.getTranslation();
+      print('✅ 初始位移：(${initialTranslation.x.toStringAsFixed(2)}, ${initialTranslation.y.toStringAsFixed(2)})');
+
+      // 2. 执行拖拽 (向右下拖动)
+      const dragOffset = Offset(100, 100);
+      await tester.dragFrom(center, dragOffset);
+      await tester.pump(); // 触发一帧更新
+
+      // 3. 验证位移发生了变化
+      final newMatrix = getCurrentTransform(tester);
+      final newTranslation = newMatrix.getTranslation();
+
+      // 验证 X 和 Y 轴都发生了移动
+      // 注意：由于我们是向右下拖，Translation 应该增加
+      expect(newTranslation.x, greaterThan(initialTranslation.x));
+      expect(newTranslation.y, greaterThan(initialTranslation.y));
+      print('✅ 拖拽后位移：(${newTranslation.x.toStringAsFixed(2)}, ${newTranslation.y.toStringAsFixed(2)})');
+    });
   });
 }
