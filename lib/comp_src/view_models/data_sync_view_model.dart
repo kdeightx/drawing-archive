@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 数据同步状态
 enum SyncStatus {
@@ -25,6 +26,84 @@ class NearByDevice {
   });
 }
 
+/// 单个文件的传输状态
+class FileTransferItem {
+  final String name;
+  final int sizeBytes;
+  final TransferStatus status;
+  final double progress; // 0.0 - 1.0
+
+  FileTransferItem({
+    required this.name,
+    required this.sizeBytes,
+    required this.status,
+    this.progress = 0.0,
+  });
+
+  String get sizeText {
+    if (sizeBytes < 1024) return '$sizeBytes B';
+    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
+    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  FileTransferItem copyWith({
+    String? name,
+    int? sizeBytes,
+    TransferStatus? status,
+    double? progress,
+  }) {
+    return FileTransferItem(
+      name: name ?? this.name,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+    );
+  }
+}
+
+/// 文件传输状态
+enum TransferStatus {
+  pending,    // 等待传输
+  transferring, // 传输中
+  completed,  // 已完成
+  failed,     // 失败
+}
+
+/// 同步历史记录
+class SyncHistory {
+  final String deviceName;
+  final DateTime time;
+  final int fileCount;
+  final int totalBytes;
+  final bool isSuccess;
+
+  SyncHistory({
+    required this.deviceName,
+    required this.time,
+    required this.fileCount,
+    required this.totalBytes,
+    required this.isSuccess,
+  });
+
+  String get sizeText {
+    if (totalBytes < 1024 * 1024) return '${(totalBytes / 1024).toStringAsFixed(1)} KB';
+    return '${(totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String get timeText {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} 分钟前';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} 小时前';
+    } else {
+      return '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    }
+  }
+}
+
 /// 数据同步视图模型 - MVVM 架构的业务逻辑层
 ///
 /// 负责：
@@ -45,6 +124,18 @@ class DataSyncViewModel extends ChangeNotifier {
   int _totalFiles = 0;
   int _syncedFiles = 0;
   int _failedFiles = 0;
+
+  // 文件传输列表
+  List<FileTransferItem> _fileTransferItems = [];
+
+  // 同步历史记录
+  List<SyncHistory> _syncHistory = [];
+
+  // 传输速度（模拟）
+  double _transferSpeed = 0.0; // MB/s
+
+  // 设备名称
+  String _deviceName = '我的设备'; // 默认设备名称
 
   // ===== Getters =====
 
@@ -75,6 +166,26 @@ class DataSyncViewModel extends ChangeNotifier {
   /// 失败文件数
   int get failedFiles => _failedFiles;
 
+  /// 文件传输列表
+  List<FileTransferItem> get fileTransferItems => _fileTransferItems;
+
+  /// 同步历史记录
+  List<SyncHistory> get syncHistory => _syncHistory;
+
+  /// 传输速度（MB/s）
+  double get transferSpeed => _transferSpeed;
+
+  /// 本机设备名称
+  String get deviceName => _deviceName;
+
+  /// 剩余时间估算（秒）
+  int get remainingSeconds {
+    if (_transferSpeed <= 0 || _syncProgress >= 1.0) return 0;
+    final remainingBytes = (_totalFiles - _syncedFiles) * 1024 * 1024; // 假设平均每个文件 1MB
+    final remainingMB = remainingBytes / (1024 * 1024);
+    return (remainingMB / _transferSpeed).round();
+  }
+
   /// 是否正在扫描
   bool get isScanning => _status == SyncStatus.scanning;
 
@@ -96,42 +207,114 @@ class DataSyncViewModel extends ChangeNotifier {
   Future<void> init() async {
     debugPrint('🔄 DataSyncViewModel: 初始化中...');
     // TODO: 初始化 WiFi Direct
+
+    // 加载设备名称
+    await _loadDeviceName();
+
+    // 模拟同步历史记录
+    _syncHistory = [
+      SyncHistory(
+        deviceName: '张工的设备',
+        time: DateTime.now().subtract(const Duration(minutes: 30)),
+        fileCount: 23,
+        totalBytes: 23 * 1024 * 1024, // 23 MB
+        isSuccess: true,
+      ),
+      SyncHistory(
+        deviceName: '李工的设备',
+        time: DateTime.now().subtract(const Duration(hours: 5)),
+        fileCount: 15,
+        totalBytes: 15 * 1024 * 1024, // 15 MB
+        isSuccess: true,
+      ),
+      SyncHistory(
+        deviceName: '王工的设备',
+        time: DateTime.now().subtract(const Duration(days: 1)),
+        fileCount: 8,
+        totalBytes: 8 * 1024 * 1024, // 8 MB
+        isSuccess: false,
+      ),
+    ];
+
     debugPrint('✅ DataSyncViewModel: 初始化完成');
   }
 
   /// 开始扫描附近设备
   ///
   /// 使用 WiFi Direct 或 mDNS 扫描附近安装了本应用的设备
+  /// 扫描会持续进行，直到连接成功或手动停止
   Future<void> startScanning() async {
-    debugPrint('🔍 DataSyncViewModel: 开始扫描设备...');
+    debugPrint('🔍 DataSyncViewModel: 开始持续扫描设备...');
 
     _setStatus(SyncStatus.scanning);
     _clearError();
+    _nearbyDevices.clear();
+    notifyListeners();
 
     try {
-      // TODO: 实现真实的设备扫描逻辑
-      // 模拟扫描延迟
-      await Future.delayed(const Duration(seconds: 2));
+      // TODO: 实现真实的持续扫描逻辑
+      // 真实场景：启动 WiFi Direct 扫描，设备回调会持续更新 _nearbyDevices
 
-      // 模拟找到的设备（实际开发时删除）
+      // Debug 模式：模拟持续发现设备
       if (kDebugMode) {
-        _nearbyDevices = [
-          NearByDevice(
-            id: 'device_001',
-            name: '张工的设备',
-            type: 'android',
-          ),
-          NearByDevice(
-            id: 'device_002',
-            name: '李工的设备',
-            type: 'android',
-          ),
-        ];
-        debugPrint('✅ 找到 ${_nearbyDevices.length} 个设备');
+        // 立即显示第一批设备
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (_status == SyncStatus.scanning) {
+          _nearbyDevices = [
+            NearByDevice(
+              id: 'device_001',
+              name: '张工的设备',
+              type: 'android',
+            ),
+            NearByDevice(
+              id: 'device_002',
+              name: '李工的设备',
+              type: 'android',
+            ),
+          ];
+          debugPrint('✅ 发现 ${_nearbyDevices.length} 个设备');
+          notifyListeners();
+        }
+
+        // 模拟 3 秒后发现新设备
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_status == SyncStatus.scanning) {
+            _nearbyDevices = [
+              ..._nearbyDevices,
+              NearByDevice(
+                id: 'device_003',
+                name: '王工的设备',
+                type: 'ios',
+              ),
+            ];
+            debugPrint('✅ 发现新设备，共 ${_nearbyDevices.length} 个设备');
+            notifyListeners();
+          }
+        });
+
+        // 模拟 6 秥后发现另一个新设备
+        Future.delayed(const Duration(seconds: 6), () {
+          if (_status == SyncStatus.scanning) {
+            _nearbyDevices = [
+              ..._nearbyDevices,
+              NearByDevice(
+                id: 'device_004',
+                name: '赵工的设备',
+                type: 'android',
+              ),
+            ];
+            debugPrint('✅ 发现新设备，共 ${_nearbyDevices.length} 个设备');
+            notifyListeners();
+          }
+        });
       }
 
-      _setStatus(SyncStatus.idle);
-      notifyListeners();
+      // 【关键】不设置 setStatus(idle)，保持持续扫描状态
+      // 扫描会在以下情况停止：
+      // 1. 用户点击设备 → connectToDevice() 会改变状态
+      // 2. 用户点击取消 → stopScanning()
+      // 3. 发生错误 → catch 块中处理
+
     } catch (e) {
       debugPrint('❌ 扫描设备失败: $e');
       _setError('扫描设备失败: $e');
@@ -210,17 +393,15 @@ class DataSyncViewModel extends ChangeNotifier {
     try {
       // TODO: 实现真实的连接逻辑
       // 1. 发送连接请求
-      // 2. 等待对方接受
+      // 2. 等待对方接受（通过 simulateAcceptConnection 触发）
       // 3. 建立连接
 
-      // 模拟连接延迟（包含等待对方确认的时间）
-      await Future.delayed(const Duration(seconds: 3));
-
-      // TODO: 这里应该等待对方接受连接的确认
-      // 模拟对方接受了连接
-      debugPrint('✅ 对方接受了连接，连接成功');
-      _setStatus(SyncStatus.idle); // 改为 idle，表示已连接
-      notifyListeners();
+      // Debug 模式下，不自动完成连接，等待手动触发
+      // 在生产环境中，这里会等待真实的网络回调
+      if (kDebugMode) {
+        debugPrint('⏳ 等待对方接受连接（Debug模式：请点击"模拟对方接受连接"按钮）');
+      }
+      // 注意：不再自动设置连接成功，需要等待 simulateAcceptConnection 被调用
       return true;
     } catch (e) {
       debugPrint('❌ 连接设备失败: $e');
@@ -230,6 +411,21 @@ class DataSyncViewModel extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// 模拟对方接受连接（仅用于 Debug 测试）
+  ///
+  /// 在扫描方点击设备后，等待方"接受"连接时调用
+  /// 此方法模拟对方设备接受了连接请求
+  void simulateAcceptConnection() {
+    if (_status != SyncStatus.connecting) {
+      debugPrint('⚠️ 当前不是连接中状态，无法模拟接受连接');
+      return;
+    }
+
+    debugPrint('✅ 模拟对方接受了连接');
+    _setStatus(SyncStatus.idle); // 连接成功，回到 idle 状态
+    notifyListeners();
   }
 
   /// 接受连接请求（等待方调用）
@@ -287,16 +483,72 @@ class DataSyncViewModel extends ChangeNotifier {
 
     try {
       // TODO: 实现真实的同步逻辑
-      // 模拟同步进度
-      for (int i = 0; i <= 100; i += 10) {
+
+      // 模拟文件列表
+      _totalFiles = 23;
+      _fileTransferItems = List.generate(_totalFiles, (index) {
+        return FileTransferItem(
+          name: '图纸-${(index + 1).toString().padLeft(3, '0')}.dwg',
+          sizeBytes: 500000 + (index * 100000), // 0.5MB - 2.7MB
+          status: index == 0 ? TransferStatus.transferring : TransferStatus.pending,
+          progress: 0.0,
+        );
+      });
+      notifyListeners();
+
+      // 模拟同步进度和文件传输
+      _transferSpeed = 2.3; // MB/s
+
+      for (int i = 0; i <= 100; i += 5) {
         await Future.delayed(const Duration(milliseconds: 200));
+
         _syncProgress = i / 100;
-        _syncedFiles = (i * 0.5).round();
+
+        // 更新文件传输状态
+        final currentFileIndex = (i * _totalFiles / 100).floor();
+        for (int j = 0; j < _fileTransferItems.length; j++) {
+          if (j < currentFileIndex) {
+            _fileTransferItems[j] = _fileTransferItems[j].copyWith(
+              status: TransferStatus.completed,
+              progress: 1.0,
+            );
+            _syncedFiles++;
+          } else if (j == currentFileIndex) {
+            final progressInFile = (i * _totalFiles / 100) - currentFileIndex;
+            _fileTransferItems[j] = _fileTransferItems[j].copyWith(
+              status: TransferStatus.transferring,
+              progress: progressInFile,
+            );
+          }
+        }
+
         notifyListeners();
       }
 
-      _totalFiles = _syncedFiles;
+      // 确保所有文件都标记为完成
+      for (int j = 0; j < _fileTransferItems.length; j++) {
+        _fileTransferItems[j] = _fileTransferItems[j].copyWith(
+          status: TransferStatus.completed,
+          progress: 1.0,
+        );
+      }
+      _syncedFiles = _totalFiles;
       _syncProgress = 1.0;
+      _transferSpeed = 0.0;
+
+      // 添加到同步历史
+      final device = _nearbyDevices.firstWhere(
+        (d) => d.id == _currentDeviceId,
+        orElse: () => NearByDevice(id: 'unknown', name: '未知设备', type: 'android'),
+      );
+      _syncHistory.insert(0, SyncHistory(
+        deviceName: device.name,
+        time: DateTime.now(),
+        fileCount: _totalFiles,
+        totalBytes: _fileTransferItems.fold(0, (sum, item) => sum + item.sizeBytes),
+        isSuccess: true,
+      ));
+
       _setStatus(SyncStatus.completed);
 
       debugPrint('✅ 同步完成！');
@@ -309,6 +561,7 @@ class DataSyncViewModel extends ChangeNotifier {
       debugPrint('❌ 同步失败: $e');
       _setError('同步失败: $e');
       _setStatus(SyncStatus.failed);
+      _transferSpeed = 0.0;
       notifyListeners();
       rethrow;
     }
@@ -343,6 +596,51 @@ class DataSyncViewModel extends ChangeNotifier {
     _totalFiles = 0;
     _syncedFiles = 0;
     _failedFiles = 0;
+  }
+
+  /// 加载设备名称
+  Future<void> _loadDeviceName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('device_name');
+      if (savedName != null && savedName.isNotEmpty) {
+        _deviceName = savedName;
+        debugPrint('✅ 已加载设备名称: $_deviceName');
+      } else {
+        // 首次使用，生成默认名称
+        _deviceName = _generateDefaultDeviceName();
+        await prefs.setString('device_name', _deviceName);
+        debugPrint('✅ 生成默认设备名称: $_deviceName');
+      }
+    } catch (e) {
+      debugPrint('⚠️ 加载设备名称失败: $e，使用默认名称');
+      _deviceName = _generateDefaultDeviceName();
+    }
+  }
+
+  /// 生成默认设备名称
+  String _generateDefaultDeviceName() {
+    // 获取当前时间戳的后4位作为随机标识
+    final randomSuffix = DateTime.now().millisecond % 10000;
+    return '设备_$randomSuffix';
+  }
+
+  /// 更新设备名称
+  Future<void> updateDeviceName(String newName) async {
+    if (newName.trim().isEmpty) {
+      debugPrint('⚠️ 设备名称不能为空');
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('device_name', newName.trim());
+      _deviceName = newName.trim();
+      notifyListeners();
+      debugPrint('✅ 设备名称已更新: $_deviceName');
+    } catch (e) {
+      debugPrint('❌ 更新设备名称失败: $e');
+    }
   }
 
   @override

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +35,9 @@ class _DataSyncView extends StatefulWidget {
 class _DataSyncViewState extends State<_DataSyncView> {
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
+  // 设备名称编辑控制器
+  final TextEditingController _deviceNameController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +47,16 @@ class _DataSyncViewState extends State<_DataSyncView> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = context.read<DataSyncViewModel>();
       await viewModel.init();
+
+      // 初始化设备名称输入框
+      _deviceNameController.text = viewModel.deviceName;
     });
+  }
+
+  @override
+  void dispose() {
+    _deviceNameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,31 +67,32 @@ class _DataSyncViewState extends State<_DataSyncView> {
       body: Stack(
         children: [
           _buildGridBackground(),
-          SafeArea(
-            child: Consumer<DataSyncViewModel>(
-              builder: (context, viewModel, child) {
-                // 使用 AnimatedSwitcher 实现平滑过渡
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.0, 0.05),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  // 根据状态动态决定显示哪个 Widget
-                  child: KeyedSubtree(
-                    key: ValueKey(viewModel.status), // 关键：用状态作为Key触发动画
-                    child: _buildBodyContent(viewModel),
-                  ),
-                );
-              },
+          // 使用 Positioned.fill 强制内容层撑满全屏
+          Positioned.fill(
+            child: SafeArea(
+              child: Consumer<DataSyncViewModel>(
+                builder: (context, viewModel, child) {
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.0, 0.05),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey(viewModel.status),
+                      child: _buildBodyContent(viewModel),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -132,65 +143,309 @@ class _DataSyncViewState extends State<_DataSyncView> {
 
   /// 空闲状态视图（优化后）
   Widget _buildIdleView(DataSyncViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    final isDark = _isDarkMode;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          // 顶部图标
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.sync_lock,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 24),
 
           // 标题和说明
           Text(
             '数据同步',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
             '无需流量，局域网极速互传',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF64748B),
                 ),
           ),
-          const SizedBox(height: 48),
+          const SizedBox(height: 24),
+
+          // 设备名称编辑卡片
+          _buildDeviceNameCard(viewModel, isDark),
+          const SizedBox(height: 16),
 
           // 两个大卡片入口
-          _buildBigActionCard(
-            icon: Icons.radar,
-            title: '我要发送',
-            subtitle: '扫描附近的设备',
-            color: Theme.of(context).colorScheme.primary,
-            onTap: () => viewModel.startScanning(),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBigActionCard(
+                  icon: Icons.radar,
+                  title: '我要发送',
+                  subtitle: '扫描附近的设备',
+                  color: Theme.of(context).colorScheme.primary,
+                  onTap: () => viewModel.startScanning(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildBigActionCard(
+                  icon: Icons.wifi_tethering,
+                  title: '我要接收',
+                  subtitle: '等待对方连接',
+                  color: const Color(0xFF10B981),
+                  onTap: () => viewModel.startDiscoverable(),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildBigActionCard(
-            icon: Icons.wifi_tethering,
-            title: '我要接收',
-            subtitle: '等待对方连接',
-            color: const Color(0xFF10B981),
-            onTap: () => viewModel.startDiscoverable(),
-          ),
+          const SizedBox(height: 24),
+
+          // 同步历史卡片
+          _buildSyncHistoryCard(viewModel, isDark),
         ],
       ),
     );
   }
 
-  // 更现代的大卡片样式
+  /// 设备名称编辑卡片
+  Widget _buildDeviceNameCard(DataSyncViewModel viewModel, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFF10B981).withValues(alpha: 0.08),
+                  const Color(0xFF10B981).withValues(alpha: 0.02),
+                ]
+              : [
+                  const Color(0xFFFFFFFF),
+                  const Color(0xFFF0FDF4),
+                ],
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF64748B).withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF10B981).withValues(alpha: 0.3)
+              : const Color(0xFF10B981).withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题行
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.smartphone_rounded,
+                    size: 16,
+                    color: Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  '设备名称',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 输入框和保存按钮
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _deviceNameController,
+                    decoration: InputDecoration(
+                      hintText: '输入设备名称',
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFF94A3B8),
+                        fontSize: 14,
+                      ),
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF475569)
+                              : const Color(0xFFCBD5E1),
+                          width: 1.5,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF475569)
+                              : const Color(0xFFCBD5E1),
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF10B981),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                    ),
+                    maxLength: 20,
+                    buildCounter: (
+                      BuildContext context, {
+                      required int currentLength,
+                      required int? maxLength,
+                      required bool isFocused,
+                    }) {
+                      return null; // 隐藏字符计数器
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // 保存按钮
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () async {
+                      final newName = _deviceNameController.text.trim();
+                      if (newName.isNotEmpty) {
+                        await viewModel.updateDeviceName(newName);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✅ 设备名称已更新'),
+                              duration: Duration(seconds: 2),
+                              backgroundColor: Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('⚠️ 设备名称不能为空'),
+                              duration: Duration(seconds: 2),
+                              backgroundColor: Color(0xFFEF4444),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    splashColor: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    highlightColor: const Color(0xFF10B981).withValues(alpha: 0.05),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF10B981),
+                            Color(0xFF059669),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.save_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            '保存',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // 提示文字
+            const SizedBox(height: 10),
+            Text(
+              '其他设备将通过此名称识别你的设备',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark
+                    ? const Color(0xFF64748B)
+                    : const Color(0xFF94A3B8),
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 大卡片样式（两列布局使用）- 重新设计版本
   Widget _buildBigActionCard({
     required IconData icon,
     required String title,
@@ -198,53 +453,399 @@ class _DataSyncViewState extends State<_DataSyncView> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: _isDarkMode ? 2 : 4,
-      color: color.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: color.withValues(alpha: 0.3), width: 1.5),
+    final isDark = _isDarkMode;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  color.withValues(alpha: 0.15),
+                  color.withValues(alpha: 0.05),
+                ]
+              : [
+                  color.withValues(alpha: 0.12),
+                  color.withValues(alpha: 0.04),
+                ],
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: color.withValues(alpha: 0.1),
+          highlightColor: color.withValues(alpha: 0.05),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: color.withValues(alpha: isDark ? 0.4 : 0.3),
+                width: 1.5,
+              ),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 优化后的图标容器 - 渐变背景 + 光晕效果
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        color.withValues(alpha: 0.25),
+                        color.withValues(alpha: 0.15),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: color, size: 26),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
+                      ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
+                        fontSize: 12,
+                        letterSpacing: 0.1,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 同步历史卡片 - 重新设计版本
+  Widget _buildSyncHistoryCard(DataSyncViewModel viewModel, bool isDark) {
+    if (viewModel.syncHistory.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  primaryColor.withValues(alpha: 0.08),
+                  primaryColor.withValues(alpha: 0.02),
+                ]
+              : [
+                  const Color(0xFFFFFFFF),
+                  const Color(0xFFF8FAFC),
+                ],
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF64748B).withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF94A3B8).withValues(alpha: 0.3)
+              : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 优化后的标题行 - 添加背景和分隔线
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: isDark
+                    ? [
+                        primaryColor.withValues(alpha: 0.12),
+                        primaryColor.withValues(alpha: 0.04),
+                      ]
+                    : [
+                        const Color(0xFFF1F5F9),
+                        const Color(0xFFF8FAFC),
+                      ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.history_rounded,
+                        size: 16,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '同步历史',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      // TODO: 查看全部历史
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '查看全部',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: primaryColor,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: primaryColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 优化后的分隔线
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: isDark
+                    ? [
+                        Colors.transparent,
+                        const Color(0xFF475569).withValues(alpha: 0.5),
+                        Colors.transparent,
+                      ]
+                    : [
+                        Colors.transparent,
+                        const Color(0xFFCBD5E1).withValues(alpha: 0.8),
+                        Colors.transparent,
+                      ],
+              ),
+            ),
+          ),
+          // 历史记录列表
+          ...viewModel.syncHistory.take(3).map((history) {
+            return _buildHistoryItem(history, isDark);
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// 单条历史记录 - 重新设计版本
+  Widget _buildHistoryItem(SyncHistory history, bool isDark) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final statusColor = history.isSuccess
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
+    final statusIcon = history.isSuccess
+        ? Icons.check_circle_rounded
+        : Icons.error_outline_rounded;
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        onTap: () {
+          // TODO: 显示历史详情
+        },
+        borderRadius: BorderRadius.circular(12),
+        splashColor: primaryColor.withValues(alpha: 0.08),
+        highlightColor: primaryColor.withValues(alpha: 0.04),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            // 添加悬停边框效果
+            border: Border(
+              left: BorderSide(
+                color: statusColor.withValues(alpha: 0.3),
+                width: 3,
+              ),
+            ),
+          ),
           child: Row(
             children: [
+              // 优化后的设备图标容器
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 32),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            const Color(0xFF475569),
+                            const Color(0xFF334155),
+                          ]
+                        : [
+                            const Color(0xFFF1F5F9),
+                            const Color(0xFFE2E8F0),
+                          ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isDark
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
               ),
-              const SizedBox(width: 20),
+              child: Icon(
+                Icons.smartphone_rounded,
+                size: 22,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+              const SizedBox(width: 14),
+              // 设备名称和信息
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      history.deviceName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF64748B),
-                          ),
+                      '${history.timeText} · ${history.fileCount} 个文件 · ${history.sizeText}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
+                        letterSpacing: 0.1,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: color,
-                size: 18,
+              // 优化后的状态图标 - 带背景容器
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  statusIcon,
+                  size: 20,
+                  color: statusColor,
+                ),
               ),
             ],
           ),
@@ -255,11 +856,14 @@ class _DataSyncViewState extends State<_DataSyncView> {
 
   /// 扫描中视图
   Widget _buildScanningView(DataSyncViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 20),
           Text(
@@ -299,6 +903,7 @@ class _DataSyncViewState extends State<_DataSyncView> {
           ],
         ],
       ),
+    ),
     );
   }
 
@@ -339,7 +944,7 @@ class _DataSyncViewState extends State<_DataSyncView> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '本机名称: 我的设备',
+              '本机名称: ${viewModel.deviceName}',
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
@@ -478,6 +1083,22 @@ class _DataSyncViewState extends State<_DataSyncView> {
             ),
             child: const Text('取消'),
           ),
+
+          // 测试按钮（仅 debug 模式）
+          if (kDebugMode) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => viewModel.simulateAcceptConnection(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF10B981),
+                side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('🔧 模拟对方接受连接'),
+            ),
+          ],
         ],
       ),
     );
@@ -613,7 +1234,7 @@ class _DataSyncViewState extends State<_DataSyncView> {
     );
   }
 
-  /// 已连接视图 - 优化后（使用环形进度条）
+  /// 已连接视图 - 优化后（使用环形进度条 + 文件列表）
   Widget _buildConnectedView(DataSyncViewModel viewModel) {
     final device = viewModel.nearbyDevices.firstWhere(
       (d) => d.id == viewModel.currentDeviceId,
@@ -624,47 +1245,52 @@ class _DataSyncViewState extends State<_DataSyncView> {
       ),
     );
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
           // 顶部连接对象卡片
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _isDarkMode
                   ? const Color(0xFF334155)
                   : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  '已连接: ${device.name}',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    '已连接: ${device.name}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 20),
 
-          // 核心区域：巨大的进度展示
+          // 核心区域：进度展示
           if (viewModel.isSyncing) ...[
+            // 环形进度条
             Stack(
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  width: 200,
-                  height: 200,
+                  width: 140,
+                  height: 140,
                   child: CircularProgressIndicator(
                     value: viewModel.syncProgress,
-                    strokeWidth: 12,
+                    strokeWidth: 10,
                     backgroundColor: _isDarkMode
                         ? const Color(0xFF334155)
                         : const Color(0xFFE2E8F0),
@@ -680,46 +1306,50 @@ class _DataSyncViewState extends State<_DataSyncView> {
                     Text(
                       '${(viewModel.syncProgress * 100).toInt()}%',
                       style: const TextStyle(
-                        fontSize: 48,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      '${viewModel.syncedFiles} / ${viewModel.totalFiles}',
+                      '${viewModel.syncedFiles}/${viewModel.totalFiles}',
                       style: TextStyle(
                         color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                        fontSize: 16,
+                        fontSize: 14,
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            Text(
-              '正在同步数据...',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            const SizedBox(height: 20),
+
+            // 速度和剩余时间卡片
+            if (viewModel.transferSpeed > 0)
+              _buildSpeedIndicator(viewModel),
+            const SizedBox(height: 16),
+
+            // 文件传输列表
+            _buildFileTransferList(viewModel),
           ] else if (viewModel.status == SyncStatus.completed) ...[
             // 完成状态
             const Icon(
               Icons.task_alt,
-              size: 100,
-              color: Colors.green,
+              size: 80,
+              color: Color(0xFF10B981),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Text(
               '同步完成',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.green,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: const Color(0xFF10B981),
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
               '共传输 ${viewModel.syncedFiles} 个文件',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF64748B),
                   ),
             ),
@@ -727,13 +1357,13 @@ class _DataSyncViewState extends State<_DataSyncView> {
             // 准备就绪状态
             Icon(
               Icons.swap_horiz,
-              size: 80,
+              size: 64,
               color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               '连接成功',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -744,10 +1374,10 @@ class _DataSyncViewState extends State<_DataSyncView> {
                     color: const Color(0xFF64748B),
                   ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             SizedBox(
-              width: 200,
-              height: 50,
+              width: double.infinity,
+              height: 48,
               child: ElevatedButton.icon(
                 onPressed: () => viewModel.startSync(),
                 icon: const Icon(Icons.play_arrow, size: 20),
@@ -762,18 +1392,267 @@ class _DataSyncViewState extends State<_DataSyncView> {
             ),
           ],
 
-          const Spacer(),
+          const SizedBox(height: 20),
 
           // 底部断开按钮
-          TextButton.icon(
+          OutlinedButton.icon(
             onPressed: () => viewModel.disconnect(),
-            icon: const Icon(Icons.link_off),
+            icon: const Icon(Icons.link_off, size: 18),
             label: const Text('断开连接'),
-            style: TextButton.styleFrom(
+            style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF64748B),
+              side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// 传输速度指示器
+  Widget _buildSpeedIndicator(DataSyncViewModel viewModel) {
+    final isDark = _isDarkMode;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E293B)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF475569)
+              : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildSpeedItem(
+            icon: Icons.speed,
+            label: '传输速度',
+            value: '${viewModel.transferSpeed.toStringAsFixed(1)} MB/s',
+          ),
+          Container(
+            width: 1,
+            height: 24,
+            color: isDark
+                ? const Color(0xFF475569)
+                : const Color(0xFFE2E8F0),
+          ),
+          _buildSpeedItem(
+            icon: Icons.access_time,
+            label: '剩余时间',
+            value: _formatDuration(viewModel.remainingSeconds),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 速度信息单项
+  Widget _buildSpeedItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 格式化时长
+  String _formatDuration(int seconds) {
+    if (seconds < 60) return '$seconds 秒';
+    if (seconds < 3600) return '${(seconds / 60).toInt()} 分钟';
+    return '${(seconds / 3600).toInt()} 小时';
+  }
+
+  /// 文件传输列表
+  Widget _buildFileTransferList(DataSyncViewModel viewModel) {
+    final isDark = _isDarkMode;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: isDark ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+          width: isDark ? 2.0 : 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Text(
+              '文件传输列表',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          // 显示前 5 个文件
+          ...viewModel.fileTransferItems.take(5).map((item) {
+            return _buildFileTransferItem(item, isDark);
+          }),
+          // 文件数量提示
+          if (viewModel.fileTransferItems.length > 5)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                '还有 ${viewModel.fileTransferItems.length - 5} 个文件...',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 单个文件传输状态
+  Widget _buildFileTransferItem(FileTransferItem item, bool isDark) {
+    IconData statusIcon;
+    Color statusColor;
+    String statusText;
+
+    switch (item.status) {
+      case TransferStatus.pending:
+        statusIcon = Icons.schedule;
+        statusColor = const Color(0xFF64748B);
+        statusText = '等待中';
+        break;
+      case TransferStatus.transferring:
+        statusIcon = Icons.downloading;
+        statusColor = Theme.of(context).colorScheme.primary;
+        statusText = '${(item.progress * 100).toInt()}%';
+        break;
+      case TransferStatus.completed:
+        statusIcon = Icons.check_circle;
+        statusColor = const Color(0xFF10B981);
+        statusText = '已完成';
+        break;
+      case TransferStatus.failed:
+        statusIcon = Icons.error_outline;
+        statusColor = const Color(0xFFEF4444);
+        statusText = '失败';
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // 文件图标
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF334155)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.insert_drive_file,
+              size: 18,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 文件信息
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.sizeText,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 传输进度条（仅在传输中时显示）
+          if (item.status == TransferStatus.transferring)
+            SizedBox(
+              width: 60,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: item.progress,
+                      backgroundColor: isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xFFE2E8F0),
+                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                      minHeight: 3,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Icon(statusIcon, size: 20, color: statusColor),
         ],
       ),
     );

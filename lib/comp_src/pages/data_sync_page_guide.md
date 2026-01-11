@@ -2,7 +2,7 @@
 
 ## 组件职责
 
-数据同步页面，支持 WiFi Direct 点对点增量同步图纸数据。
+数据同步页面，支持 WiFi Direct 点对点增量同步图纸数据，以及设备名称的编辑和管理。
 
 ## 代码位置
 
@@ -11,6 +11,7 @@
 ## 功能概述
 
 本页面实现了基于 WiFi Direct 的点对点数据同步功能，用户可以：
+- 编辑和管理本机设备名称
 - 扫描附近安装了本应用的设备
 - 将设备设置为可被发现模式，等待连接
 - 建立点对点连接后进行增量数据同步
@@ -29,33 +30,49 @@
 使用 `Provider` + `ChangeNotifier` 模式：
 - `DataSyncViewModel` 继承 `ChangeNotifier`
 - 页面通过 `Consumer<DataSyncViewModel>` 订阅状态变化
-- 使用 `AnimatedSwitcher` 实现平滑的状态切换动画
+- 使用 `AnimatedSwitcher` 实现平滑的状态切换动画（300ms）
+
+### 状态控制
+
+- 使用 `TextEditingController` 管理设备名称输入框
+- 在 `initState` 中初始化 ViewModel 和加载设备名称
+- 在 `dispose` 中清理 TextEditingController
 
 ## 核心功能
 
 ### 1. 空闲状态 (Idle)
 
-显示两个入口卡片：
-- **我要发送**：扫描附近设备
-- **我要接收**：开启可被发现模式
+显示以下内容：
+- **设备名称编辑卡片**：绿色主题卡片，包含输入框和保存按钮
+  - 支持最多 20 个字符
+  - 自动去除首尾空格
+  - 保存时验证非空
+  - 显示 SnackBar 反馈
+- **两个入口卡片**：
+  - "我要发送"：扫描附近设备
+  - "我要接收"：开启可被发现模式
+- **同步历史卡片**：显示最近 3 条同步记录
 
 ### 2. 扫描设备 (Scanning)
 
 - 显示扫描进度指示器
-- 实时展示发现的设备列表
+- 实时展示发现的设备列表（设备会陆续出现）
 - 支持取消扫描操作
+- Debug 模式：模拟设备在 0.5s、3s、6s 时陆续出现
 
 ### 3. 可被发现模式 (Discoverable)
 
 - 显示雷达波纹动画（`RadarWaves`）
-- 显示本机设备名称
+- 显示本机设备名称（动态显示 `viewModel.deviceName`）
 - 等待其他设备发起连接请求
+- Debug 模式：提供"模拟收到连接请求"按钮
 
 ### 4. 连接流程
 
 **主动连接**：
 - 扫描到设备后点击设备卡片发起连接
 - 进入"连接中"状态，等待对方确认
+- Debug 模式：提供"模拟对方接受连接"按钮
 
 **被动连接**：
 - 收到连接请求后显示确认对话框
@@ -66,6 +83,7 @@
 建立连接后：
 - 显示"开始同步"按钮
 - 同步中显示环形进度条和百分比
+- 显示传输速度和剩余时间
 - 完成后显示传输统计信息
 
 ## 状态流转
@@ -104,15 +122,24 @@ Scaffold
 
 | 状态 | 视图方法 | 说明 |
 |------|---------|------|
-| `idle` | `_buildIdleView()` | 两个大卡片入口 |
+| `idle` | `_buildIdleView()` | 设备名称编辑 + 两个大卡片入口 + 同步历史 |
 | `scanning` | `_buildScanningView()` | 扫描动画 + 设备列表 |
-| `discoverable` | `_buildDiscoverableView()` | 雷达波纹动画 |
+| `discoverable` | `_buildDiscoverableView()` | 雷达波纹动画 + 设备名称显示 |
 | `connecting` | `_buildConnectingView()` | 等待对方确认 |
 | `pendingApproval` | `_buildApprovalView()` | 接受/拒绝按钮 |
 | `connected` | `_buildConnectedView()` | 同步按钮/进度/结果 |
 | `failed` | `_buildErrorView()` | 错误提示 |
 
 ### 自定义组件
+
+#### `_DeviceNameCard` (新增)
+
+设备名称编辑卡片，位于空闲视图顶部：
+- 绿色渐变背景（#10B981）
+- 图标 + 标题行
+- TextField 输入框（最多 20 字符）
+- 保存按钮（渐变背景 + 光晕）
+- 提示文字
 
 #### `_GridPainter`
 
@@ -131,11 +158,31 @@ Scaffold
 
 #### `_BigActionCard`
 
-大卡片组件，用于"我要发送"和"我要接收"入口。
+大卡片组件，用于"我要发送"和"我要接收"入口：
+- 渐变背景
+- 双层阴影效果
+- 图标容器带渐变和光晕
+- InkWell 点击效果
+
+#### `_SyncHistoryCard`
+
+同步历史卡片：
+- 渐变标题行
+- 渐变分隔线
+- 左侧状态边框
+- 点击查看详情
 
 #### `_DeviceCard`
 
 设备卡片组件，显示设备信息。
+
+#### `_FileTransferList`
+
+文件传输列表，显示传输进度。
+
+#### `_SpeedIndicator`
+
+传输速度和剩余时间指示器。
 
 ## 使用示例
 
@@ -151,13 +198,31 @@ Navigator.push(
 );
 ```
 
-### 示例 2：带初始数据
+### 示例 2：编辑设备名称
 
 ```dart
-// 如果需要传递初始参数（预留）
-DataSyncPage(
-  initialMode: SyncMode.send,
-);
+// 在空闲视图中
+// 1. 在设备名称输入框中输入新名称
+// 2. 点击保存按钮
+// 3. 名称自动保存到 SharedPreferences
+// 4. 显示 SnackBar 反馈
+
+// 代码实现
+InkWell(
+  onTap: () async {
+    final newName = _deviceNameController.text.trim();
+    if (newName.isNotEmpty) {
+      await viewModel.updateDeviceName(newName);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 设备名称已更新'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    }
+  },
+  child: const Text('保存'),
+)
 ```
 
 ### 示例 3：在 Drawer 中使用
@@ -207,7 +272,7 @@ import 'package:provider/provider.dart';
 | 用途 | 颜色 | 说明 |
 |------|------|------|
 | 主色调 | `Theme.of(context).colorScheme.primary` | 主操作按钮、图标 |
-| 成功色 | `Color(0xFF10B981)` | 可被发现模式、接受按钮 |
+| 成功色 | `Color(0xFF10B981)` | 可被发现模式、接受按钮、设备名称卡片 |
 | 警告色 | `Color(0xFFF59E0B)` | 连接请求提示 |
 | 错误色 | `Color(0xFFEF4444)` | 取消操作、错误提示 |
 | 次要文本 | `Color(0xFF64748B)` | 说明文字 |
@@ -216,24 +281,30 @@ import 'package:provider/provider.dart';
 
 ### 圆角规范
 
-- 大卡片：`BorderRadius.circular(20)`
-- 普通卡片：`BorderRadius.circular(16)`
+- 大卡片：`BorderRadius.circular(16)`
 - 按钮：`BorderRadius.circular(12)`
+- 输入框：`BorderRadius.circular(12)`
 - 小卡片：`BorderRadius.circular(14)`
 
 ### 间距规范
 
-- 页面边距：`24px`
+- 页面边距：`16px`
 - 卡片内边距：`16-20px`
 - 组件间距：`8-16px`
 - 大间距：`32-48px`
+
+### 动画时长
+
+- 状态切换：`300ms`
+- 雷达波纹：`2s`（循环）
 
 ## 注意事项
 
 1. **WiFi Direct 权限**：需要在 `AndroidManifest.xml` 中配置相关权限
 2. **后端待实现**：当前 ViewModel 中的 WiFi Direct 功能使用模拟数据
 3. **状态一致性**：确保 UI 状态与 ViewModel 状态同步
-4. **动画性能**：使用 `AnimatedBuilder` 优化变换矩阵渲染性能
+4. **资源清理**：`TextEditingController` 在 `dispose` 中清理
+5. **设备名称持久化**：使用 SharedPreferences 存储，跨会话保持
 
 ## 后续优化
 
@@ -241,5 +312,6 @@ import 'package:provider/provider.dart';
 - [ ] 添加同步前文件预览
 - [ ] 支持同步方向选择（发送/接收/双向）
 - [ ] 添加文件冲突处理 UI
-- [ ] 实现同步历史记录
+- [ ] 实现同步历史记录详情页面
 - [ ] 支持设备收藏功能
+- [ ] 添加设备头像设置
