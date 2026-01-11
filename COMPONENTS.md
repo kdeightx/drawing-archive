@@ -10,6 +10,7 @@
 | DrawingSearchPage | lib/comp_src/pages/drawing_search_page_guide.md | 图纸搜索页面，支持关键词搜索和日期筛选 |
 | DrawingSettingsPage | lib/comp_src/pages/drawing_settings_page_guide.md | 设置页面，配置应用参数和选项 |
 | AiApiConfigPage | lib/comp_src/pages/ai_api_config_page_guide.md | AI API 配置页面，设置 AI 服务接口和密钥 |
+| DataSyncPage | lib/comp_src/pages/data_sync_page_guide.md | 数据同步页面，支持 WiFi Direct 点对点增量同步 |
 
 ## 自定义组件
 
@@ -35,6 +36,7 @@
 |---------|---------|---------|
 | DrawingScannerViewModel | lib/comp_src/view_models/drawing_scanner_view_model_guide.md | 图纸扫描页面的状态管理，管理图片选择、AI 识别、编号输入、旋转控制 |
 | AiApiConfigViewModel | lib/comp_src/view_models/ai_api_config_view_model_guide.md | AI API 配置的状态管理，管理 API 配置的持久化、测试连接和验证 |
+| DataSyncViewModel | lib/comp_src/view_models/data_sync_view_model_guide.md | 数据同步的状态管理，管理设备扫描、连接、增量同步和进度 |
 
 ---
 

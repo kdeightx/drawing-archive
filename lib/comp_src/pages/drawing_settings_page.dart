@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../comp_src/pages/ai_api_config_page.dart';
+import '../../comp_src/pages/data_sync_page.dart';
 
 /// 设置页面 - 精密工业风格
 class DrawingSettingsPage extends StatefulWidget {
@@ -55,15 +56,20 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
                   '其他',
                   children: [
                     _buildOtherSetting(
-                      icon: Icons.cloud_outlined,
-                      title: l10n.cloudSync,
-                      subtitle: l10n.cloudSyncHint,
+                      icon: Icons.sync_outlined,
+                      title: '数据同步',
+                      subtitle: 'WiFi Direct 点对点同步，查缺补漏',
                       trailing: const Icon(
                         Icons.chevron_right_outlined,
                         color: Color(0xFFCBD5E1),
                         size: 20,
                       ),
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const DataSyncPage()),
+                        );
+                      },
                     ),
                     _buildOtherSetting(
                       icon: Icons.storage_outlined,

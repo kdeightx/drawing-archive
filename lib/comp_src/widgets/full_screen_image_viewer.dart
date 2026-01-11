@@ -256,15 +256,15 @@ class _GestureImageItemState extends State<_GestureImageItem>
 
   /// 手势更新：核心增量算法
   void _onScaleUpdate(ScaleUpdateDetails details) {
-    // 1. 手指数量变化检测 (防跳动核心)
-    // 当从 1指 -> 2指 或 2指 -> 1指 时，FocalPoint 会突变。
-    // 我们必须在此刻重置"上一帧"的数据，跳过这一帧的计算，防止图片瞬移。
-    if (details.pointerCount != _lastPointerCount) {
+    // 【Bug 修复】防崩溃保护
+    // 如果这是通过手动触发的第一帧（绕过 onStart），_lastFocalPoint 可能为 null
+    // 或者手指数量突变，我们需要将其视为"隐式的 Start"进行初始化，并跳过这一帧的计算
+    if (_lastFocalPoint == null || details.pointerCount != _lastPointerCount) {
       _lastFocalPoint = details.localFocalPoint;
       _lastScale = details.scale;
       _lastRotation = details.rotation;
       _lastPointerCount = details.pointerCount;
-      return;
+      return; // 跳过这一帧，防止瞬间跳变
     }
 
     // 2. 计算增量 (Delta)
@@ -386,9 +386,15 @@ class _GestureImageItemState extends State<_GestureImageItem>
 /// 解决痛点：GestureDetector 在单指滑动时会抢占 PageView 的事件。
 /// 原理：如果检测到只有 1 个手指，且当前允许翻页，就直接丢弃移动事件，
 /// 这样底层的 PageView 就能收到事件并正常翻页了。
+///
+/// 【Bug 修复】双击缩放后单指无法拖动的问题
+/// 当图片已变换（!isPageScrollEnabled）时，单指移动会手动触发 onUpdate 回调，
+/// 绕过 ScaleGestureRecognizer 的限制。
 class _CheckScaleGestureRecognizer extends ScaleGestureRecognizer {
   final bool isPageScrollEnabled;
   int _pointerCount = 0; // 手动追踪手指数量
+  int? _trackedPointer; // 追踪单指，用于手动触发 onUpdate
+  Offset? _lastTrackedPosition; // 记录上次位置
 
   _CheckScaleGestureRecognizer({
     super.debugOwner,
@@ -403,17 +409,42 @@ class _CheckScaleGestureRecognizer extends ScaleGestureRecognizer {
 
   @override
   void handleEvent(PointerEvent event) {
+    // 更新指针计数和追踪
     if (event is PointerUpEvent || event is PointerCancelEvent) {
       _pointerCount--;
+      if (_trackedPointer == event.pointer) {
+        _trackedPointer = null;
+        _lastTrackedPosition = null;
+      }
+    } else if (event is PointerDownEvent) {
+      _pointerCount++;
+      if (_trackedPointer == null) {
+        _trackedPointer = event.pointer;
+        _lastTrackedPosition = event.position;
+      }
     }
 
-    // 【关键逻辑】
-    // 1. 如果当前允许翻页 (isPageScrollEnabled = true)
-    // 2. 并且只有 1 根手指 (_pointerCount < 2)
-    // 3. 并且是移动事件 (PointerMoveEvent)
-    // -> 那么，我们直接忽略这个事件（不传给 super）。
-    // 结果：ScaleGestureRecognizer 认为没有发生移动，不会宣示主权。
-    // PageView 的 HorizontalDragGestureRecognizer 则会看到移动，并宣示主权，成功翻页！
+    // 【Bug 修复】图片已变换时，单指移动直接触发平移
+    // 修复双击缩放后单指无法拖动的问题
+    if (!isPageScrollEnabled &&
+        _pointerCount == 1 &&
+        event is PointerMoveEvent &&
+        _trackedPointer == event.pointer &&
+        onUpdate != null) {
+
+      // 手动触发 onUpdate，使用 localPosition 修复坐标跳变问题
+      onUpdate!(ScaleUpdateDetails(
+        focalPoint: event.position,
+        localFocalPoint: event.localPosition, // 【关键】使用相对坐标
+        scale: 1.0,
+        rotation: 0.0,
+        pointerCount: 1,
+      ));
+      _lastTrackedPosition = event.position;
+      return;
+    }
+
+    // 【原有逻辑】允许翻页时忽略单指移动
     if (isPageScrollEnabled && _pointerCount < 2 && event is PointerMoveEvent) {
       return;
     }

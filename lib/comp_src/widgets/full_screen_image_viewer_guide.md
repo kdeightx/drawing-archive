@@ -124,19 +124,21 @@ void _checkState() {
 }
 ```
 
-### 3. 差分/增量算法（第 249-291 行）
+### 3. 差分/增量算法（第 257-290 行）
 
 **防跳动核心**：使用帧间差值计算，解决手指数量切换时的图片瞬移问题
 
 ```dart
 void _onScaleUpdate(ScaleUpdateDetails details) {
-  // 1. 手指数量变化检测
-  if (details.pointerCount != _lastPointerCount) {
+  // 【Bug 修复】防崩溃保护
+  // 如果这是通过手动触发的第一帧（绕过 onStart），_lastFocalPoint 可能为 null
+  // 或者手指数量突变，我们需要将其视为"隐式的 Start"进行初始化，并跳过这一帧的计算
+  if (_lastFocalPoint == null || details.pointerCount != _lastPointerCount) {
     _lastFocalPoint = details.localFocalPoint;
     _lastScale = details.scale;
     _lastRotation = details.rotation;
     _lastPointerCount = details.pointerCount;
-    return;  // 跳过这一帧，防止跳动
+    return; // 跳过这一帧，防止瞬间跳变
   }
 
   // 2. 计算增量
@@ -160,19 +162,57 @@ void _onScaleUpdate(ScaleUpdateDetails details) {
 }
 ```
 
-### 4. 自定义手势识别器（第 389-423 行）
+**关键改进**：
+- 添加空值保护（`_lastFocalPoint == null`）
+- 防止绕过 `onStart` 导致的空指针崩溃
+- 手指数量突变时自动初始化并跳过当前帧
 
-**智能路由**：在 1.0x 状态下主动忽略单指移动事件，让 PageView 处理翻页
+### 4. 自定义手势识别器（第 393-454 行）
+
+**智能路由**：在 1.0x 状态下主动忽略单指移动事件，让 PageView 处理翻页；在图片已变换时，手动触发单指拖动
 
 ```dart
 class _CheckScaleGestureRecognizer extends ScaleGestureRecognizer {
   final bool isPageScrollEnabled;
   int _pointerCount = 0;
+  int? _trackedPointer;           // 追踪单指，用于手动触发 onUpdate
+  Offset? _lastTrackedPosition;    // 记录上次位置
 
   @override
   void handleEvent(PointerEvent event) {
+    // 更新指针计数和追踪
     if (event is PointerUpEvent || event is PointerCancelEvent) {
       _pointerCount--;
+      if (_trackedPointer == event.pointer) {
+        _trackedPointer = null;
+        _lastTrackedPosition = null;
+      }
+    } else if (event is PointerDownEvent) {
+      _pointerCount++;
+      if (_trackedPointer == null) {
+        _trackedPointer = event.pointer;
+        _lastTrackedPosition = event.position;
+      }
+    }
+
+    // 【Bug 修复】图片已变换时，单指移动直接触发平移
+    // 修复双击缩放后单指无法拖动的问题
+    if (!isPageScrollEnabled &&
+        _pointerCount == 1 &&
+        event is PointerMoveEvent &&
+        _trackedPointer == event.pointer &&
+        onUpdate != null) {
+
+      // 手动触发 onUpdate，使用 localPosition 修复坐标跳变问题
+      onUpdate!(ScaleUpdateDetails(
+        focalPoint: event.position,
+        localFocalPoint: event.localPosition, // 【关键】使用相对坐标
+        scale: 1.0,
+        rotation: 0.0,
+        pointerCount: 1,
+      ));
+      _lastTrackedPosition = event.position;
+      return;
     }
 
     // 关键逻辑：1.0x + 单指 + 移动 → 忽略，让 PageView 翻页
@@ -184,6 +224,11 @@ class _CheckScaleGestureRecognizer extends ScaleGestureRecognizer {
   }
 }
 ```
+
+**关键改进**：
+- 添加单指追踪逻辑（`_trackedPointer`, `_lastTrackedPosition`）
+- 在图片已变换（`!isPageScrollEnabled`）时，手动触发 `onUpdate` 回调
+- 使用 `localPosition` 而不是 `position`，避免坐标跳变
 
 ### 5. AnimatedBuilder 实时更新（第 363-380 行）
 
