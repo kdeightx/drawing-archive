@@ -9,6 +9,7 @@
 - **进度管理**：展示识别进度（发送数据、扫描中、完成）
 - **编号管理**：管理编号输入、分页显示、AI 识别结果、识别失败状态
 - **旋转控制**：支持图片 90 度旋转（顺时针/逆时针）
+- **图片预览导航**：管理全屏图片预览的导航状态
 - **数据持久化**：保存已识别的图片到本地存储
 - **生命周期管理**：自动清理资源，防止内存泄漏
 
@@ -48,6 +49,8 @@ lib/comp_src/view_models/drawing_scanner_view_model.dart
 | `progressState` | `ProgressState?` | 当前进度状态（sending/scanning/completed）|
 | `aiRecognitionFailed` | `bool` | AI 识别是否失败（网络或 API 错误）|
 | `currentRotation` | `int` | 当前旋转角度（0/90/180/270）|
+| `shouldOpenImagePreview` | `bool` | 是否需要打开全屏图片预览（导航状态）|
+| `previewImageIndex` | `int` | 要预览的图片索引 |
 | `pickImage()` | `Future<void>` | 选择单张图片（相机），不自动触发识别 |
 | `pickMultipleImages()` | `Future<bool>` | 选择多张图片（相册），不自动触发识别 |
 | `uploadAndRecognizeAll()` | `Future<void>` | 上传并识别所有未识别的图片 |
@@ -60,6 +63,8 @@ lib/comp_src/view_models/drawing_scanner_view_model.dart
 | `previousPage()` / `nextPage()` | `void` | 编号列表翻页 |
 | `rotateClockwise()` / `rotateCounterClockwise()` | `void` | 旋转图片 90 度 |
 | `resetRotation()` | `void` | 重置旋转角度 |
+| `onImageTapped()` | `void` | 用户点击图片，请求打开全屏预览 |
+| `clearImagePreviewState()` | `void` | 清除图片预览导航状态 |
 | `reset()` | `Future<void>` | 重置页面所有状态 |
 | `clearAllImages()` | `Future<void>` | 清空所有图片（删除临时文件并重置页面）|
 
@@ -117,6 +122,8 @@ enum ProgressState {
 | `_progressState` | `ProgressState?` | 进度状态（控制进度指示器显示）|
 | `_aiRecognitionFailed` | `bool` | AI 识别是否失败（网络或 API 错误）|
 | `_currentRotation` | `int` | 当前旋转角度（0/90/180/270）|
+| `_shouldOpenImagePreview` | `bool` | 是否需要打开全屏图片预览（导航状态）|
+| `_previewImageIndex` | `int` | 要预览的图片索引 |
 
 ---
 
@@ -172,7 +179,47 @@ class _DrawingScannerContent extends StatelessWidget {
 }
 ```
 
-### 示例2：上传识别流程
+### 示例2：图片预览导航（MVVM 架构）
+
+```dart
+// ViewModel 中设置导航状态
+viewModel.onImageTapped(2);  // 用户点击第3张图片
+
+// View 中监听导航状态并执行导航
+Consumer<DrawingScannerViewModel>(
+  builder: (context, viewModel, child) {
+    if (viewModel.shouldOpenImagePreview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final imagePaths = viewModel.selectedImages
+            .map((f) => f.path)
+            .toList();
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenImageViewer(
+              imagePaths: imagePaths,
+              initialIndex: viewModel.previewImageIndex,
+            ),
+          ),
+        ).then((_) {
+          // 预览关闭后清除状态
+          viewModel.clearImagePreviewState();
+        });
+      });
+    }
+
+    return ImageDisplayCard(
+      images: viewModel.selectedImages,
+      currentIndex: viewModel.currentImageIndex,
+      onIndexChange: (index) => viewModel.setCurrentImageIndex(index),
+      onImageTap: (index) => viewModel.onImageTapped(index),
+    );
+  },
+)
+```
+
+### 示例3：上传识别流程
 
 ```dart
 // 选择图片后手动触发识别
@@ -194,7 +241,7 @@ Future<void> _handleUpload() async {
 // 5. 如果全部失败，抛出异常提示用户
 ```
 
-### 示例3：识别失败状态处理
+### 示例4：识别失败状态处理
 
 ```dart
 // 构建编号项列表时传递识别失败状态
@@ -216,7 +263,7 @@ List<NumberItem> _buildNumberItems(DrawingScannerViewModel viewModel) {
 // - recognitionFailed = false: 显示 "输入图纸编号"
 ```
 
-### 示例4：保存已识别的图片
+### 示例5：保存已识别的图片
 
 ```dart
 // saveAllImages() 只保存有编号的图片
@@ -302,6 +349,36 @@ viewModel.rotateCounterClockwise();
 // 重置旋转
 viewModel.resetRotation();
 // currentRotation = 0
+```
+
+### 图片预览导航（MVVM 架构）
+
+```dart
+// ViewModel 层：导航决策
+void onImageTapped(int index) {
+  debugPrint('📸 用户点击了图片 $index，准备打开全屏预览');
+
+  _previewImageIndex = index;
+  _shouldOpenImagePreview = true;
+  notifyListeners();
+}
+
+// View 层：监听状态并执行导航
+if (viewModel.shouldOpenImagePreview) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageViewer(
+          imagePaths: viewModel.selectedImages.map((f) => f.path).toList(),
+          initialIndex: viewModel.previewImageIndex,
+        ),
+      ),
+    ).then((_) {
+      viewModel.clearImagePreviewState();
+    });
+  });
+}
 ```
 
 ---
@@ -458,6 +535,32 @@ notifyListeners();
 - `_analyzingIndex` 用于 UI 显示当前正在识别的图片
 - `_aiRecognitionFailed` 用于标记是否有 API 错误
 
+### 导航状态管理（MVVM 架构）
+
+```dart
+// 第 517-530 行：图片预览导航相关方法
+
+// ViewModel 决策导航
+void onImageTapped(int index) {
+  debugPrint('📸 用户点击了图片 $index，准备打开全屏预览');
+
+  _previewImageIndex = index;
+  _shouldOpenImagePreview = true;
+  notifyListeners();
+}
+
+// 清除导航状态
+void clearImagePreviewState() {
+  _shouldOpenImagePreview = false;
+  notifyListeners();
+}
+```
+
+**MVVM 职责划分**：
+- **ViewModel**：决定何时导航（设置 `_shouldOpenImagePreview = true`）
+- **View**：执行导航（监听状态并调用 `Navigator.push()`）
+- **Widget**：通知用户交互（通过 `onImageTap` 回调）
+
 ### 资源释放管理
 
 ```dart
@@ -502,4 +605,5 @@ void resetRotation() {
 | `lib/comp_src/services/drawing_service.dart` | 图纸业务逻辑服务（图片选择、AI 识别、数据保存）|
 | `lib/comp_src/pages/drawing_scanner_page.dart` | 使用 ViewModel 的主页面 |
 | `lib/comp_src/widgets/action_card.dart` | 操作卡片组件，调用 ViewModel 的各种方法 |
+| `lib/comp_src/widgets/image_display_card.dart` | 图片显示卡片，支持点击预览 |
 | `lib/comp_src/widgets/full_screen_image_viewer.dart` | 全屏预览组件，使用 ViewModel 的图片和旋转状态 |

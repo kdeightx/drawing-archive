@@ -74,6 +74,14 @@ class DrawingScannerViewModel extends ChangeNotifier {
   int _currentRotation = 0;
   int get currentRotation => _currentRotation;
 
+  /// 是否需要打开全屏图片预览
+  bool _shouldOpenImagePreview = false;
+  bool get shouldOpenImagePreview => _shouldOpenImagePreview;
+
+  /// 要预览的图片索引
+  int _previewImageIndex = 0;
+  int get previewImageIndex => _previewImageIndex;
+
   // ========== 构造函数 ==========
 
   DrawingScannerViewModel({required this.drawingService});
@@ -231,14 +239,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
         debugPrint('  ✗ 图片 ${index + 1} 识别失败: $e');
 
         // 检查是否是 AI API 相关错误
-        final errorMsg = e.toString();
-        if (errorMsg.contains('API Key 未配置') ||
-            errorMsg.contains('AI 识别失败') ||
-            errorMsg.contains('AI 识别超时') ||
-            errorMsg.contains('网络连接失败') ||
-            errorMsg.contains('网络') ||
-            errorMsg.contains('连接') ||
-            errorMsg.contains('超时')) {
+        if (_isAiApiError(e.toString())) {
           hasApiError = true;
         }
 
@@ -322,13 +323,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
       // 检查是否是 AI API 相关错误
       final errorMsg = e.toString();
-      if (errorMsg.contains('API Key 未配置') ||
-          errorMsg.contains('AI 识别失败') ||
-          errorMsg.contains('AI 识别超时') ||
-          errorMsg.contains('网络连接失败') ||
-          errorMsg.contains('网络') ||
-          errorMsg.contains('连接') ||
-          errorMsg.contains('超时')) {
+      if (_isAiApiError(errorMsg)) {
         _aiRecognitionFailed = true; // 标记 AI 识别失败
         throw Exception('AI API 连接失败：$errorMsg');
       }
@@ -336,16 +331,6 @@ class DrawingScannerViewModel extends ChangeNotifier {
       rethrow;
     }
   }
-
-  /// 注释：以下 _analyzeNewImages() 方法已于 Commit 2d1549c 中移除
-  ///
-  /// 移除原因：
-  /// - 原用于"自动识别新添加的图片"
-  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
-  /// - 改为手动控制，通过 uploadAndRecognizeAll() 方法
-  /// - 保留此注释便于理解设计演变
-  ///
-  /// 替代方案：使用 uploadAndRecognizeAll() 方法手动触发识别
 
   /// 批量分析所有图片
   Future<void> analyzeAllImages() async {
@@ -387,13 +372,7 @@ class DrawingScannerViewModel extends ChangeNotifier {
 
       // 检查是否是 AI API 相关错误
       final errorMsg = e.toString();
-      if (errorMsg.contains('API Key 未配置') ||
-          errorMsg.contains('AI 识别失败') ||
-          errorMsg.contains('AI 识别超时') ||
-          errorMsg.contains('网络连接失败') ||
-          errorMsg.contains('网络') ||
-          errorMsg.contains('连接') ||
-          errorMsg.contains('超时')) {
+      if (_isAiApiError(errorMsg)) {
         _aiRecognitionFailed = true; // 标记 AI 识别失败
         throw Exception('AI API 连接失败：$errorMsg');
       }
@@ -401,16 +380,6 @@ class DrawingScannerViewModel extends ChangeNotifier {
       rethrow;
     }
   }
-
-  /// 注释：以下 _analyzeNewImages() 方法已于 Commit 2d1549c 中移除
-  ///
-  /// 移除原因：
-  /// - 原用于"自动识别新添加的图片"
-  /// - 在 Commit 2d1549c 中，pickImage/pickMultipleImages 不再自动触发识别
-  /// - 改为手动控制，通过 uploadAndRecognizeAll() 方法
-  /// - 保留此注释便于理解设计演变
-  ///
-  /// 替代方案：使用 uploadAndRecognizeAll() 方法手动触发识别
 
   /// 保存所有图片
   Future<int> saveAllImages() async {
@@ -545,6 +514,21 @@ class DrawingScannerViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 用户点击图片，请求打开全屏预览
+  void onImageTapped(int index) {
+    debugPrint('📸 用户点击了图片 $index，准备打开全屏预览');
+
+    _previewImageIndex = index;
+    _shouldOpenImagePreview = true;
+    notifyListeners();
+  }
+
+  /// 清除图片预览导航状态（由 View 调用）
+  void clearImagePreviewState() {
+    _shouldOpenImagePreview = false;
+    notifyListeners();
+  }
+
   /// 重置页面
   Future<void> reset() async {
     // 清理所有控制器
@@ -585,6 +569,19 @@ class DrawingScannerViewModel extends ChangeNotifier {
     await reset();
 
     debugPrint('✅ 所有图片已清空');
+  }
+
+  // ===== 私有辅助方法 =====
+
+  /// 检查错误是否是 AI API 相关的错误
+  bool _isAiApiError(String errorMsg) {
+    return errorMsg.contains('API Key 未配置') ||
+        errorMsg.contains('AI 识别失败') ||
+        errorMsg.contains('AI 识别超时') ||
+        errorMsg.contains('网络连接失败') ||
+        errorMsg.contains('网络') ||
+        errorMsg.contains('连接') ||
+        errorMsg.contains('超时');
   }
 
   /// 释放资源

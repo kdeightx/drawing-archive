@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../services/drawing_service.dart';
 import '../view_models/drawing_scanner_view_model.dart';
 import '../widgets/action_card.dart';
+import '../widgets/full_screen_image_viewer.dart';
 import '../widgets/image_display_card.dart';
 import '../widgets/smart_process_stepper.dart';
 import 'drawing_search_page.dart';
@@ -57,6 +58,28 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
           SafeArea(
             child: Consumer<DrawingScannerViewModel>(
               builder: (context, viewModel, child) {
+                // 监听导航状态，执行图片预览导航
+                if (viewModel.shouldOpenImagePreview) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final imagePaths = viewModel.selectedImages
+                        .map((f) => f.path)
+                        .toList();
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FullScreenImageViewer(
+                          imagePaths: imagePaths,
+                          initialIndex: viewModel.previewImageIndex,
+                        ),
+                      ),
+                    ).then((_) {
+                      // 预览关闭后清除状态
+                      viewModel.clearImagePreviewState();
+                    });
+                  });
+                }
+
                 return SingleChildScrollView(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -255,6 +278,9 @@ class _DrawingScannerViewState extends State<_DrawingScannerView> {
       currentIndex: viewModel.currentImageIndex,
       onIndexChange: (index) {
         viewModel.setCurrentImageIndex(index);
+      },
+      onImageTap: (index) {
+        viewModel.onImageTapped(index);
       },
     );
   }

@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-/// 图片显示卡片组件 - 支持多图查看、缩放、滑动切换
+import 'full_screen_image_viewer.dart';
+
+/// 图片显示卡片组件 - 支持多图查看、缩放、滑动切换、全屏预览
 class ImageDisplayCard extends StatefulWidget {
   /// 图片列表
   final List<File> images;
@@ -10,12 +12,15 @@ class ImageDisplayCard extends StatefulWidget {
   final int currentIndex;
   /// 索引变化回调
   final ValueChanged<int> onIndexChange;
+  /// 图片点击回调（可选，用于导航到全屏预览）
+  final ValueChanged<int>? onImageTap;
 
   const ImageDisplayCard({
     super.key,
     required this.images,
     required this.currentIndex,
     required this.onIndexChange,
+    this.onImageTap,
   });
 
   @override
@@ -153,26 +158,37 @@ class _ImageDisplayCardState extends State<ImageDisplayCard> {
           itemCount: widget.images.length,
           onPageChanged: widget.onIndexChange,
           itemBuilder: (context, index) {
-            return InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Center(
-                child: Image.file(
-                  widget.images[index],
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.broken_image, size: 48, color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
-                          const SizedBox(height: 8),
-                          Text('图片加载失败', style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
-                        ],
-                      ),
-                    );
-                  },
+            return GestureDetector(
+              onTap: () {
+                // 优先使用回调（如果提供）
+                if (widget.onImageTap != null) {
+                  widget.onImageTap!(index);
+                } else {
+                  // 向后兼容：使用默认行为
+                  _openFullScreenViewer(context, index);
+                }
+              },
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.file(
+                    widget.images[index],
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.broken_image, size: 48, color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
+                            const SizedBox(height: 8),
+                            Text('图片加载失败', style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             );
@@ -181,6 +197,20 @@ class _ImageDisplayCardState extends State<ImageDisplayCard> {
         // 多张图片时显示指示器
         if (widget.images.length > 1) _buildPageIndicator(context),
       ],
+    );
+  }
+
+  /// 打开全屏预览
+  void _openFullScreenViewer(BuildContext context, int index) {
+    final imagePaths = widget.images.map((f) => f.path).toList();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageViewer(
+          imagePaths: imagePaths,
+          initialIndex: index,
+        ),
+      ),
     );
   }
 

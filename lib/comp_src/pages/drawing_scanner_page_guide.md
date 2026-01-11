@@ -5,7 +5,7 @@
 图纸扫描入库页面 - 应用主页面，负责图纸的扫描、识别和归档流程：
 
 - **图片选择**：支持相机拍照（单张）和相册多选
-- **图片预览**：支持缩放、滑动切换查看多张图片
+- **图片预览**：支持缩放、滑动切换、点击查看全屏预览
 - **AI识别**：调用 DrawingService 分析图片识别图纸编号
 - **进度显示**：三阶段进度指示器（发送中 → AI扫描中 → 已完成）
 - **编号编辑**：手动编辑/修正 AI 识别的编号，支持分页显示
@@ -16,11 +16,12 @@
 - **MVVM 模式**：View（本页面）+ ViewModel（DrawingScannerViewModel）
 - **组件化**：页面拆分为多个可复用子组件
 - **状态管理**：使用 Provider 的 ChangeNotifier
+- **导航分离**：ViewModel 决策导航，View 执行导航
 
 ## 代码位置
 
 ```
-demo/lib/comp_src/pages/drawing_scanner_page.dart
+lib/comp_src/pages/drawing_scanner_page.dart
 ```
 
 ## 输入与输出
@@ -37,6 +38,7 @@ demo/lib/comp_src/pages/drawing_scanner_page.dart
 |------|------|
 | 跳转搜索页 | 点击"搜索已归档"按钮，跳转到 DrawingSearchPage |
 | 跳转设置页 | 点击右上角设置图标，跳转到 DrawingSettingsPage |
+| 全屏预览 | 点击图片打开全屏预览（ViewModel 决策，View 执行导航）|
 | 显示 SnackBar | 操作成功/失败时显示提示信息 |
 | 进度指示 | 显示三阶段进度条（带颜色区分） |
 | 状态重置 | 完成状态3秒后恢复非活跃状态 |
@@ -53,6 +55,7 @@ demo/lib/comp_src/pages/drawing_scanner_page.dart
 ../services/drawing_service.dart         # 业务逻辑服务
 ../view_models/drawing_scanner_view_model.dart  # ViewModel 状态管理
 ../widgets/action_card.dart              # 操作卡片组件
+../widgets/full_screen_image_viewer.dart # 全屏图片预览组件
 ../widgets/image_display_card.dart       # 图片显示卡片组件
 ../widgets/smart_process_stepper.dart    # 进度指示器组件
 ../../l10n/app_localizations.dart        # 国际化
@@ -79,6 +82,7 @@ DrawingScannerPage (StatelessWidget)
 - 实际的 UI 实现
 - 管理本地 ScrollController
 - 通过 Consumer 订阅 ViewModel 状态变化
+- 监听导航状态并执行导航
 
 ### 控制器
 
@@ -100,6 +104,58 @@ DrawingScannerPage (StatelessWidget)
 - `recognizedNumbers` - AI 识别结果
 - `numberControllers` - 编号输入控制器列表
 - `progressState` - 当前进度状态
+- `shouldOpenImagePreview` - 是否需要打开全屏预览（导航状态）
+- `previewImageIndex` - 要预览的图片索引
+
+### MVVM 导航架构
+
+```dart
+// View 层：监听导航状态并执行导航
+Consumer<DrawingScannerViewModel>(
+  builder: (context, viewModel, child) {
+    // 监听导航状态
+    if (viewModel.shouldOpenImagePreview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final imagePaths = viewModel.selectedImages
+            .map((f) => f.path)
+            .toList();
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenImageViewer(
+              imagePaths: imagePaths,
+              initialIndex: viewModel.previewImageIndex,
+            ),
+          ),
+        ).then((_) {
+          // 预览关闭后清除状态
+          viewModel.clearImagePreviewState();
+        });
+      });
+    }
+
+    return SingleChildScrollView(...);
+  },
+)
+
+// Widget 层：通知用户交互
+ImageDisplayCard(
+  onImageTap: (index) => viewModel.onImageTapped(index),
+)
+
+// ViewModel 层：决策导航
+void onImageTapped(int index) {
+  _previewImageIndex = index;
+  _shouldOpenImagePreview = true;
+  notifyListeners();
+}
+```
+
+**职责划分**：
+- **ViewModel**：决定何时导航（设置状态）
+- **View**：执行导航（监听状态并调用 Navigator）
+- **Widget**：通知用户交互（通过回调）
 
 ## 使用示例
 
@@ -180,18 +236,19 @@ class _MainPageState extends State<MainPage> {
 | 组件 | 文件 | 说明 |
 |------|------|------|
 | `ActionCard` | `../widgets/action_card.dart` | 操作卡片（相机、相册、搜索按钮 + 编号编辑列表） |
-| `ImageDisplayCard` | `../widgets/image_display_card.dart` | 图片显示卡片（滑动、缩放、页码指示器） |
+| `ImageDisplayCard` | `../widgets/image_display_card.dart` | 图片显示卡片（滑动、缩放、点击预览、页码指示器） |
 | `SmartProcessStepper` | `../widgets/smart_process_stepper.dart` | 进度指示器（三阶段步骤条） |
+| `FullScreenImageViewer` | `../widgets/full_screen_image_viewer.dart` | 全屏图片预览组件 |
 
 ### 主要 build 方法
 
 | 方法 | 行号 | 说明 |
 |------|------|------|
-| `_buildAppBar()` | 88-110 | 构建 AppBar（包含设置按钮） |
-| `_buildGridBackground()` | 113-120 | 构建网格背景（CustomPainter） |
-| `_buildHeader()` | 122-238 | 构建进度卡片（状态文字 + 进度指示器） |
-| `_buildImageCard()` | 240-249 | 构建图片卡片（ImageDisplayCard） |
-| `_buildActionCard()` | 251-327 | 构建操作卡片（ActionCard） |
+| `_buildAppBar()` | 84-103 | 构建 AppBar（包含设置按钮） |
+| `_buildGridBackground()` | 106-113 | 构建网格背景（CustomPainter） |
+| `_buildHeader()` | 115-231 | 构建进度卡片（状态文字 + 进度指示器） |
+| `_buildImageCard()` | 233-248 | 构建图片卡片（ImageDisplayCard，包含导航回调） |
+| `_buildActionCard()` | 250-327 | 构建操作卡片（ActionCard） |
 | `_showSnackBar()` | 329-372 | 显示提示信息 |
 
 ### 辅助类
@@ -203,9 +260,14 @@ class _MainPageState extends State<MainPage> {
 ## 修改注意事项
 
 ### MVVM 分离原则
-- **View（本页面）**：纯 UI 渲染，不包含业务逻辑
-- **ViewModel**：状态管理和业务逻辑
+- **View（本页面）**：纯 UI 渲染，不包含业务逻辑，执行导航
+- **ViewModel**：状态管理和业务逻辑，决策导航
 - **Service**：数据持久化和 API 调用
+
+### 导航状态管理（MVVM 架构）
+- **使用 addPostFrameCallback**：在下一帧执行导航，避免在 build 期间调用 Navigator
+- **状态驱动导航**：ViewModel 设置 `shouldOpenImagePreview = true`，View 监听并执行导航
+- **预览关闭清除状态**：Navigator.then() 中调用 `clearImagePreviewState()`
 
 ### 弹性布局设计
 页面采用**自适应弹性布局**，解决小屏幕适配问题：
@@ -266,3 +328,4 @@ Column(
 | `drawing_service.dart` | 业务逻辑服务 |
 | `drawing_search_page.dart` | 搜索页面（可跳转） |
 | `drawing_settings_page.dart` | 设置页面（可跳转） |
+| `full_screen_image_viewer.dart` | 全屏预览组件 |
