@@ -475,6 +475,13 @@ class ActionCard extends StatelessWidget {
                   viewModel.numberControllers[item
                       .index], // 使用 ViewModel 的 controller，避免每次重建都创建新的
               enabled: isEnabled, // 上传识别流程中禁用
+              onTap: () {
+                // 输入框获得焦点时，确保在可见区域
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5, // 滚动到输入框居中位置
+                );
+              },
               onTapOutside: (_) {
                 // 点击输入框外部时取消焦点
                 FocusScope.of(context).unfocus();

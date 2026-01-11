@@ -256,6 +256,20 @@ DrawingScannerPage (页面)
 - **启用**：可以手动输入编号
 - **禁用**：上传识别流程中禁用（`isEnabled: !viewModel.isAnalyzing`）
 
+**键盘避让**（第 478-484 行）：
+```dart
+onTap: () {
+  // 输入框获得焦点时，确保在可见区域
+  Scrollable.ensureVisible(
+    context,
+    alignment: 0.5, // 滚动到输入框居中位置
+  );
+}
+```
+- 用户点击输入框时，自动滚动使输入框居中显示
+- `alignment: 0.5` 将输入框滚动到可视区域中心
+- 与页面的动态 padding 配合，确保输入框始终在键盘上方可见
+
 **删除按钮状态**：
 - **启用**：可以删除图片
 - **禁用**：上传识别流程中禁用（`canDelete: !viewModel.isAnalyzing`）

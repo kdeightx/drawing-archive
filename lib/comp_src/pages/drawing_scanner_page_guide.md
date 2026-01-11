@@ -320,6 +320,41 @@ Column(
 - `shouldRepaint` 返回 `false`（背景不变）
 - 避免不必要的重绘
 
+### 键盘避让设计
+页面使用**动态 padding**和**自动滚动**两层机制确保输入框在键盘弹出时可见：
+
+**第一层：动态 padding**（第 86-91 行）
+```dart
+padding: EdgeInsets.fromLTRB(
+  16,
+  16,
+  16,
+  16 + MediaQuery.of(context).viewInsets.bottom, // 键盘高度
+)
+```
+- 使用 `MediaQuery.of(context).viewInsets.bottom` 获取键盘高度
+- 当键盘弹出时，底部 padding 自动增加，为键盘预留空间
+- 键盘收起时，padding 恢复原值
+
+**第二层：自动滚动**（ActionCard 组件内实现）
+```dart
+onTap: () {
+  // 输入框获得焦点时，确保在可见区域
+  Scrollable.ensureVisible(
+    context,
+    alignment: 0.5, // 滚动到输入框居中位置
+  );
+}
+```
+- 当用户点击输入框时，自动滚动使输入框居中显示
+- `alignment: 0.5` 表示将输入框滚动到可视区域的中心
+- 确保即使输入框位于页面底部，也能在键盘上方清晰可见
+
+**为什么需要两层机制**：
+- 仅靠动态 padding 可能不足以确保输入框可见（特别是长列表底部）
+- 自动滚动确保输入框始终在最佳可见位置
+- 两层结合提供最佳用户体验
+
 ## 相关文件
 
 | 文件 | 说明 |
