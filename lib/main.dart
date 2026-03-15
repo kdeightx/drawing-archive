@@ -74,7 +74,7 @@ class _DrawingScannerAppState extends State<DrawingScannerApp> {
         Provider<DrawingService>.value(value: _drawingService),
       ],
       child: MaterialApp(
-        title: '机械图纸归档助手',
+        title: '图纸归档助手',
         debugShowCheckedModeBanner: false,
 
         // 国际化配置

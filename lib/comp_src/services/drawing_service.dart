@@ -26,7 +26,7 @@ class DrawingService {
   io.Directory? get aiImagesDirectory => _aiImagesDirectory;
 
   /// Platform Channel 名称
-  static const String _storageChannelName = 'com.example.demo/storage';
+  static const String _storageChannelName = 'com.drawarchive.app/storage';
 
   /// 获取公共外部存储根目录（仅 Android）
   /// 通过原生 Android API Environment.getExternalStorageDirectory() 获取

@@ -10,11 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AiApiConfigViewModel extends ChangeNotifier {
   // ========== 默认值 ==========
 
-  /// 默认 Base URL
-  static const String defaultBaseUrl = 'https://api.302.ai/v1';
+  /// 默认 Base URL（空，需要用户自己填写）
+  static const String defaultBaseUrl = '';
 
-  /// 默认模型名称
-  static const String defaultModelName = 'gemini-1.5-flash-exp';
+  /// 默认模型名称（空，需要用户自己填写）
+  static const String defaultModelName = '';
 
   /// SharedPreferences 键名
   static const String _keyBaseUrl = 'ai_api_base_url';

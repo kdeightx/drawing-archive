@@ -1,4 +1,4 @@
-package com.example.demo
+package com.drawarchive.app
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -10,7 +10,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.demo/storage")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.drawarchive.app/storage")
             .setMethodCallHandler { call, result ->
                 if (call.method == "getExternalStorageRoot") {
                     val path = Environment.getExternalStorageDirectory()?.absolutePath

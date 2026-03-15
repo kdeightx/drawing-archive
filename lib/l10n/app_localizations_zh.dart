@@ -147,7 +147,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiApiConfigHint => '配置第三方大模型 API';
 
   @override
-  String get aiApiConfigDescription => '配置第三方大模型 API 用于图纸编号识别。建议使用 Gemini 3 Flash 或 Gemini 3 Pro，实测识别准确率更高。';
+  String get aiApiConfigDescription => '配置第三方大模型 API 用于图纸编号识别。模型必须支持图片识别功能（多模态模型）。\n建议使用 Gemini 3 Flash 或 Gemini 3 Pro，实测识别准确率更高。\n示例地址：\nhttps://api.openai.com/v1';
 
   @override
   String get apiKey => 'API Key';
@@ -159,13 +159,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get baseUrl => 'Base URL';
 
   @override
-  String get baseUrlHint => '请输入 API 基础地址';
+  String get baseUrlHint => '例如：https://api.openai.com/v1';
 
   @override
   String get modelName => '模型名称';
 
   @override
-  String get modelNameHint => '请输入模型名称';
+  String get modelNameHint => '例如：gpt-4o、gemini-2.0-flash';
 
   @override
   String get errorApiKeyRequired => '请输入 API Key';

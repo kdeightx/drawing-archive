@@ -72,7 +72,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get analyzing => 'Analyzing';
 
   @override
-  String get archiving => 'Archiving...';
+  String get archiving => 'Archiving';
 
   @override
   String get analyzingHint => 'Recognizing drawing number...';
@@ -147,7 +147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiApiConfigHint => 'Configure third-party LLM API';
 
   @override
-  String get aiApiConfigDescription => 'Configure third-party LLM API for drawing number recognition. Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy.';
+  String get aiApiConfigDescription => 'Configure third-party LLM API for drawing number recognition. Model must support image recognition (multimodal model). Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy. Example: https://api.openai.com/v1';
 
   @override
   String get apiKey => 'API Key';
@@ -159,13 +159,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get baseUrl => 'Base URL';
 
   @override
-  String get baseUrlHint => 'Enter API base URL';
+  String get baseUrlHint => 'e.g. https://api.openai.com/v1';
 
   @override
   String get modelName => 'Model Name';
 
   @override
-  String get modelNameHint => 'Enter model name';
+  String get modelNameHint => 'e.g. gpt-4o, gemini-2.0-flash';
 
   @override
   String get errorApiKeyRequired => 'Please enter API Key';

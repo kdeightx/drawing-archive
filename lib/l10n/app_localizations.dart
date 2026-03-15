@@ -224,7 +224,7 @@ abstract class AppLocalizations {
   /// No description provided for @archiving.
   ///
   /// In en, this message translates to:
-  /// **'Archiving...'**
+  /// **'Archiving'**
   String get archiving;
 
   /// No description provided for @analyzingHint.
@@ -374,7 +374,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiApiConfigDescription.
   ///
   /// In en, this message translates to:
-  /// **'Configure third-party LLM API for drawing number recognition. Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy.'**
+  /// **'Configure third-party LLM API for drawing number recognition. Model must support image recognition (multimodal model). Recommended: Gemini 3 Flash or Gemini 3 Pro for higher accuracy. Example: https://api.openai.com/v1'**
   String get aiApiConfigDescription;
 
   /// No description provided for @apiKey.
@@ -398,7 +398,7 @@ abstract class AppLocalizations {
   /// No description provided for @baseUrlHint.
   ///
   /// In en, this message translates to:
-  /// **'Enter API base URL'**
+  /// **'e.g. https://api.openai.com/v1'**
   String get baseUrlHint;
 
   /// No description provided for @modelName.
@@ -410,7 +410,7 @@ abstract class AppLocalizations {
   /// No description provided for @modelNameHint.
   ///
   /// In en, this message translates to:
-  /// **'Enter model name'**
+  /// **'e.g. gpt-4o, gemini-2.0-flash'**
   String get modelNameHint;
 
   /// No description provided for @errorApiKeyRequired.
