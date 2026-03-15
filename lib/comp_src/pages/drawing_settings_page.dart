@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../comp_src/pages/ai_api_config_page.dart';
-import '../../comp_src/pages/data_sync_page.dart';
+// TODO: 数据同步功能暂时隐藏，待修复后恢复
+// import '../../comp_src/pages/data_sync_page.dart';
 
 /// 设置页面 - 精密工业风格
 class DrawingSettingsPage extends StatefulWidget {
@@ -55,22 +56,23 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
                 _buildSettingsSection(
                   '其他',
                   children: [
-                    _buildOtherSetting(
-                      icon: Icons.sync_outlined,
-                      title: '数据同步',
-                      subtitle: 'WiFi Direct 点对点同步，查缺补漏',
-                      trailing: const Icon(
-                        Icons.chevron_right_outlined,
-                        color: Color(0xFFCBD5E1),
-                        size: 20,
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const DataSyncPage()),
-                        );
-                      },
-                    ),
+                    // TODO: 数据同步功能暂时隐藏，待修复后恢复
+                    // _buildOtherSetting(
+                    //   icon: Icons.sync_outlined,
+                    //   title: '数据同步',
+                    //   subtitle: 'WiFi Direct 点对点同步，查缺补漏',
+                    //   trailing: const Icon(
+                    //     Icons.chevron_right_outlined,
+                    //     color: Color(0xFFCBD5E1),
+                    //     size: 20,
+                    //   ),
+                    //   onTap: () {
+                    //     Navigator.push(
+                    //       context,
+                    //       MaterialPageRoute(builder: (context) => const DataSyncPage()),
+                    //     );
+                    //   },
+                    // ),
                     _buildOtherSetting(
                       icon: Icons.storage_outlined,
                       title: l10n.storage,
