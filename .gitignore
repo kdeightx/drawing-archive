@@ -46,3 +46,11 @@ app.*.map.json
 
 # Android build
 android/build/.last_build_id
+
+# Test files with sensitive data
+test_302ai.dart
+test_api.md
+
+# Test files with sensitive data
+test_302ai.dart
+test_api.md
