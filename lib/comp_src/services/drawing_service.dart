@@ -413,9 +413,18 @@ class DrawingService {
     return await _recognizeDrawingNumberWithAI(image);
   }
 
+  /// 默认提示词（当用户未设置自定义提示词时使用）
+  static const String _defaultPrompt = '''请识别这张图纸中的编号。
+
+要求：
+1. 只返回编号，不要返回任何其他文字
+2. 编号可能有多种格式（如：1.0101-1100、DWG-001、A12345 等）
+3. 如果图片中没有清晰的编号，请返回 "未识别"
+4. 不要添加任何解释或说明''';
+
   /// 使用真实 AI API 识别图纸编号
   ///
-  /// 从 SharedPreferences 加载 API 配置，调用 AI 识别图纸编号
+  /// 从 SharedPreferences 加载 API 配置和自定义提示词，调用 AI 识别图纸编号
   Future<String> _recognizeDrawingNumberWithAI(io.File image) async {
     try {
       // 加载 API 配置
@@ -425,6 +434,9 @@ class DrawingService {
       final apiKey = prefs.getString('ai_api_key') ?? '';
       final modelName =
           prefs.getString('ai_model_name') ?? 'gemini-1.5-flash-exp';
+      // 加载用户自定义提示词，如果没有则使用默认提示词
+      final customPrompt =
+          prefs.getString('ai_custom_prompt') ?? _defaultPrompt;
 
       // 检查配置是否有效
       if (apiKey.isEmpty) {
@@ -442,7 +454,7 @@ class DrawingService {
       // 构建请求 URL
       final Uri uri = Uri.parse('$baseUrl/chat/completions');
 
-      // 构建请求体（多模态格式）
+      // 构建请求体（多模态格式）- 使用用户自定义提示词
       final Map<String, dynamic> requestBody = {
         'model': modelName,
         'stream': false,
@@ -452,12 +464,7 @@ class DrawingService {
             'content': [
               {
                 'type': 'text',
-                'text': '''请识别这张机械图纸中的图纸编号。
-要求：
-1. 只返回图纸编号，不要返回任何其他文字
-2. 图纸编号格式通常为：数字.数字-数字（如：1.0101-1100）
-3. 如果图片中没有清晰的图纸编号，请返回 "未识别"
-4. 不要添加任何解释或说明''',
+                'text': customPrompt,
               },
               {
                 'type': 'image_url',
@@ -470,6 +477,7 @@ class DrawingService {
 
       // 发送请求
       debugPrint('正在调用 AI API 识别图纸编号...');
+      debugPrint('使用提示词: ${customPrompt.length > 50 ? "${customPrompt.substring(0, 50)}..." : customPrompt}');
       final response = await http
           .post(
             uri,
@@ -503,13 +511,8 @@ class DrawingService {
             .replaceAll('\r', '');
         debugPrint('✓ AI 识别结果: $cleanResult');
 
-        // 检查是否是有效的图纸编号格式
-        final numberPattern = RegExp(r'^\d+\.\d+-\d+$');
-        if (!numberPattern.hasMatch(cleanResult)) {
-          throw Exception(
-            'AI 识别结果格式不正确: "$cleanResult"，期望格式：数字.数字-数字（如：1.0101-1100）',
-          );
-        }
+        // 不再强制验证格式，接受 AI 返回的任何结果
+        // 用户可以通过自定义提示词来控制 AI 返回的格式
 
         return cleanResult;
       } else {

@@ -363,6 +363,36 @@ class AiApiConfigViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 单独保存提示词（不依赖 API 配置完整性）
+  Future<bool> savePromptOnly() async {
+    try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCustomPrompt, _customPrompt.trim());
+    debugPrint('✅ 提示词已保存');
+    return true;
+    } catch (e) {
+    debugPrint('❌ 保存提示词失败: $e');
+    return false;
+  }
+  }
+
+  /// 保存提示词（独立方法，不依赖 API 配置完整性）
+  Future<bool> savePrompt() async {
+    debugPrint('🔧 开始保存提示词...');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyCustomPrompt, _customPrompt.trim());
+      debugPrint('✅ 提示词保存成功');
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = '保存提示词失败: $e';
+      debugPrint('❌ 保存提示词失败: $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// 清除错误信息
   void clearError() {
     _errorMessage = null;

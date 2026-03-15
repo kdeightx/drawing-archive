@@ -16,14 +16,24 @@ class PromptEditorPage extends StatefulWidget {
 class _PromptEditorPageState extends State<PromptEditorPage> {
   late TextEditingController _promptController;
   bool _hasChanges = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _promptController = TextEditingController(
-      text: widget.viewModel.customPrompt,
-    );
+    _promptController = TextEditingController();
     _promptController.addListener(_onTextChanged);
+    _loadSavedPrompt();
+  }
+
+  Future<void> _loadSavedPrompt() async {
+    // 先从 SharedPreferences 加载保存的提示词
+    await widget.viewModel.init();
+    // 加载完成后更新文本框内容
+    _promptController.text = widget.viewModel.customPrompt;
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _onTextChanged() {
@@ -59,8 +69,8 @@ class _PromptEditorPageState extends State<PromptEditorPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        actions: [
-          if (_hasChanges)
+        actions: <Widget>[
+          if (_hasChanges && !_isLoading)
             TextButton(
               onPressed: _savePrompt,
               child: Text(
@@ -73,11 +83,13 @@ class _PromptEditorPageState extends State<PromptEditorPage> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: <Widget>[
             // 说明卡片
             Container(
               padding: const EdgeInsets.all(16),
@@ -94,9 +106,9 @@ class _PromptEditorPageState extends State<PromptEditorPage> {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Row(
-                    children: [
+                    children: <Widget>[
                       Icon(
                         Icons.info_outline,
                         size: 20,
@@ -195,8 +207,10 @@ class _PromptEditorPageState extends State<PromptEditorPage> {
   }
 
   void _savePrompt() async {
+    // 先将用户编辑的内容同步到 ViewModel
     widget.viewModel.updateCustomPrompt(_promptController.text);
-    final success = await widget.viewModel.saveConfig();
+    // 然后保存
+    final success = await widget.viewModel.savePrompt();
     if (success && mounted) {
       setState(() {
         _hasChanges = false;
