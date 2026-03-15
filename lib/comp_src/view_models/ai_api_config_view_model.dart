@@ -20,6 +20,16 @@ class AiApiConfigViewModel extends ChangeNotifier {
   static const String _keyBaseUrl = 'ai_api_base_url';
   static const String _keyApiKey = 'ai_api_key';
   static const String _keyModelName = 'ai_model_name';
+  static const String _keyCustomPrompt = 'ai_custom_prompt';
+
+  /// 默认提示词
+  static const String defaultPrompt = '''请识别这张图纸中的编号。
+
+要求：
+1. 只返回编号，不要返回任何其他文字
+2. 编号可能有多种格式（如：1.0101-1100、DWG-001、A12345 等）
+3. 如果图片中没有清晰的编号，请返回 "未识别"
+4. 不要添加任何解释或说明''';
 
   // ========== 状态变量 ==========
 
@@ -34,6 +44,10 @@ class AiApiConfigViewModel extends ChangeNotifier {
   /// 模型名称
   String _modelName = defaultModelName;
   String get modelName => _modelName;
+
+  /// 自定义提示词
+  String _customPrompt = defaultPrompt;
+  String get customPrompt => _customPrompt;
 
   /// 是否正在测试连接
   bool _isTesting = false;
@@ -73,6 +87,7 @@ class AiApiConfigViewModel extends ChangeNotifier {
       _baseUrl = prefs.getString(_keyBaseUrl) ?? defaultBaseUrl;
       _apiKey = prefs.getString(_keyApiKey) ?? '';
       _modelName = prefs.getString(_keyModelName) ?? defaultModelName;
+      _customPrompt = prefs.getString(_keyCustomPrompt) ?? defaultPrompt;
       debugPrint('  Base URL: $_baseUrl');
       debugPrint('  API Key: ${_apiKey.isNotEmpty ? "已填写 (${_apiKey.length} 字符)" : "空"}');
       debugPrint('  Model Name: $_modelName');
@@ -120,6 +135,9 @@ class AiApiConfigViewModel extends ChangeNotifier {
 
       await prefs.setString(_keyModelName, _modelName.trim());
       debugPrint('  ✅ Model Name 已写入: ${_modelName.trim()}');
+
+      await prefs.setString(_keyCustomPrompt, _customPrompt.trim());
+      debugPrint('  ✅ Custom Prompt 已写入');
 
       // 立即验证是否写入成功
       final verifyBaseUrl = prefs.getString(_keyBaseUrl);
@@ -263,12 +281,7 @@ class AiApiConfigViewModel extends ChangeNotifier {
             'content': [
               {
                 'type': 'text',
-                'text': '''请识别这张机械图纸中的图纸编号。
-要求：
-1. 只返回图纸编号，不要返回任何其他文字
-2. 图纸编号格式通常为：数字.数字-数字（如：1.0101-1100）
-3. 如果图片中没有清晰的图纸编号，请返回 "未识别"
-4. 不要添加任何解释或说明''',
+                'text': _customPrompt,
               },
               {
                 'type': 'image_url',
@@ -344,6 +357,12 @@ class AiApiConfigViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 更新自定义提示词
+  void updateCustomPrompt(String value) {
+    _customPrompt = value;
+    notifyListeners();
+  }
+
   /// 清除错误信息
   void clearError() {
     _errorMessage = null;
@@ -356,6 +375,7 @@ class AiApiConfigViewModel extends ChangeNotifier {
     _baseUrl = defaultBaseUrl;
     _apiKey = '';
     _modelName = defaultModelName;
+    _customPrompt = defaultPrompt;
     _errorMessage = null;
     _testResult = null;
 
@@ -364,6 +384,7 @@ class AiApiConfigViewModel extends ChangeNotifier {
     await prefs.remove(_keyBaseUrl);
     await prefs.remove(_keyApiKey);
     await prefs.remove(_keyModelName);
+    await prefs.remove(_keyCustomPrompt);
 
     notifyListeners();
   }

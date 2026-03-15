@@ -233,4 +233,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get viewDrawing => 'View Drawing';
+
+  @override
+  String get promptEditor => 'Prompt Editor';
+
+  @override
+  String get promptEditorHint => 'Customize AI recognition prompt';
+
+  @override
+  String get promptTips => 'Tips';
+
+  @override
+  String get promptDescription => '• This prompt will be sent to AI for image recognition\n• Modify it to adapt to different numbering formats\n• Keep instructions clear and concise\n• Include format requirements if needed';
+
+  @override
+  String get customPrompt => 'Custom Prompt';
+
+  @override
+  String get promptHint => 'Enter your prompt...';
+
+  @override
+  String get resetToDefault => 'Reset to Default';
 }

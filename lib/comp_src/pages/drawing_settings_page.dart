@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../comp_src/pages/ai_api_config_page.dart';
+import '../../comp_src/pages/prompt_editor_page.dart';
+import '../../comp_src/view_models/ai_api_config_view_model.dart';
 // TODO: 数据同步功能暂时隐藏，待修复后恢复
 // import '../../comp_src/pages/data_sync_page.dart';
 
@@ -108,6 +110,26 @@ class _DrawingSettingsPageState extends State<DrawingSettingsPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const AiApiConfigPage()),
+                        );
+                      },
+                    ),
+                    _buildOtherSetting(
+                      icon: Icons.edit_note_outlined,
+                      title: l10n.promptEditor,
+                      subtitle: l10n.promptEditorHint,
+                      trailing: const Icon(
+                        Icons.chevron_right_outlined,
+                        color: Color(0xFFCBD5E1),
+                        size: 20,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PromptEditorPage(
+                              viewModel: AiApiConfigViewModel(),
+                            ),
+                          ),
                         );
                       },
                     ),

@@ -73,5 +73,12 @@
   "modify": "Modify",
   "noResultsFound": "No drawings found",
   "drawingDetails": "Drawing Details",
-  "viewDrawing": "View Drawing"
+  "viewDrawing": "View Drawing",
+  "promptEditor": "Prompt Editor",
+  "promptEditorHint": "Customize AI recognition prompt",
+  "promptTips": "Tips",
+  "promptDescription": "• This prompt will be sent to AI for image recognition\n• Modify it to adapt to different numbering formats\n• Keep instructions clear and concise\n• Include format requirements if needed",
+  "customPrompt": "Custom Prompt",
+  "promptHint": "Enter your prompt...",
+  "resetToDefault": "Reset to Default"
 }

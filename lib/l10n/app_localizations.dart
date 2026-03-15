@@ -538,6 +538,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View Drawing'**
   String get viewDrawing;
+
+  /// No description provided for @promptEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Prompt Editor'**
+  String get promptEditor;
+
+  /// No description provided for @promptEditorHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Customize AI recognition prompt'**
+  String get promptEditorHint;
+
+  /// No description provided for @promptTips.
+  ///
+  /// In en, this message translates to:
+  /// **'Tips'**
+  String get promptTips;
+
+  /// No description provided for @promptDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'• This prompt will be sent to AI for image recognition\n• Modify it to adapt to different numbering formats\n• Keep instructions clear and concise\n• Include format requirements if needed'**
+  String get promptDescription;
+
+  /// No description provided for @customPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Prompt'**
+  String get customPrompt;
+
+  /// No description provided for @promptHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your prompt...'**
+  String get promptHint;
+
+  /// No description provided for @resetToDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to Default'**
+  String get resetToDefault;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

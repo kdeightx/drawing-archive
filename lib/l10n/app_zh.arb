@@ -73,5 +73,12 @@
   "modify": "修改",
   "noResultsFound": "未找到相关图纸",
   "drawingDetails": "图纸详情",
-  "viewDrawing": "查看图纸"
+  "viewDrawing": "查看图纸",
+  "promptEditor": "提示词设置",
+  "promptEditorHint": "自定义 AI 识别提示词",
+  "promptTips": "提示词说明",
+  "promptDescription": "提示词用于指导 AI 识别图纸编号。你可以根据不同类型的图纸自定义提示词，以获得更准确的识别结果。",
+  "customPrompt": "自定义提示词",
+  "promptHint": "输入提示词...",
+  "resetToDefault": "恢复默认"
 }

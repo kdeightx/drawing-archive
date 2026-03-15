@@ -233,4 +233,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get viewDrawing => '查看图纸';
+
+  @override
+  String get promptEditor => '提示词设置';
+
+  @override
+  String get promptEditorHint => '自定义 AI 识别提示词';
+
+  @override
+  String get promptTips => '提示词说明';
+
+  @override
+  String get promptDescription => '提示词用于指导 AI 识别图纸编号。你可以根据不同类型的图纸自定义提示词，以获得更准确的识别结果。';
+
+  @override
+  String get customPrompt => '自定义提示词';
+
+  @override
+  String get promptHint => '输入提示词...';
+
+  @override
+  String get resetToDefault => '恢复默认';
 }
