@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 /// 测试 302.AI API 配置
 Future<void> test302AI() async {
   const baseUrl = 'https://api.302.ai/v1';
-  const apiKey = 'sk-7XcEMXt8V4QX8nA8RHTeUSIwXVJZ5P8ZCkjID4fZHujhUlyA';
+  const apiKey = '';
   const modelName = 'gemini-3-flash-preview';
 
   print('🧪 测试 302.AI API 配置');
